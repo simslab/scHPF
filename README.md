@@ -25,7 +25,7 @@ Binaries for other operating systems are available in the [tensorflow instalatio
 
 ## Preprocessing
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The tab-delimitted matrix should be formatted like:
->>> ENSEMBL_ID    GENE_SYMBOL   CELL0_UMI_COUNTS    CELL1_UMI_COUNTS ...
+> <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
 
 The matrix should not have a header. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
 
