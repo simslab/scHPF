@@ -246,7 +246,8 @@ def run_trials(indir, outdir, prefix, nfactors, a, ap, bp, c, cp, dp, ntrials=1,
 
             # get best run
             print(bestm_name, obj[bestm_name])
-            best = np.argmin(obj[bestm_name]) if bestm_name=='mae' else np.argmax(obj[bestm_name])
+            best = np.argmin(obj[bestm_name]) if bestm_name=='mae' else \
+                    np.argmax(obj[bestm_name])
             if i == best:
                 print('New best [trial {0}] loss: {1}  tve: {2}  ts2e: {3}'.format(
                     i, obj[loss_name][i], obj['tve'][i], obj['ts2e'][i]))
@@ -531,9 +532,9 @@ def _parseargs_post(args):
         args.dtype = tf.float32
 
     if args.save_img:
-        try:
-            import seaborn as sns
-        except ImportError:
+        import importlib
+        sns_spec = importlib.util.find_spec("seaborn")
+        if sns_spec is None:
             msg = 'To save images during training, the python package seaborn'
             msg += ' must be installed.  Please install seaborn or remove '
             msg += 'the \'-save-img\' flag.'
