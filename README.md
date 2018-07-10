@@ -3,7 +3,7 @@
 Pre-release of Single-cell Hierarchical Poisson Factorization (scHPF), as described in the forthcoming manuscript: *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization by Levitin *et al.*
 
 ## About
-scHPF uses [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). We have found it especially useful in scRNA-seq of complex tissues that are not fully described by clustering or pseudo-temporal ordering. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](link).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to model the sparsity of scRNA-seq data and avoid prior normalization. We have found scHPF especially useful in scRNA-seq of complex tissues that are not fully described by clustering or pseudo-temporal ordering. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](link).
 
 ## Installation
 Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8.
