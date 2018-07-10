@@ -227,21 +227,6 @@ def write_factor_metrics(vp, data, outdir, prefix='', dom_p=0.8, feed_dict={}):
         yaml.dump(metrics, f, default_flow_style=False)
 
 
-def write_scores(model_dir, out_dir='', dtype=tf.float64,
-        param_prefix=''):
-    if outdir is None or len(outdir) == 0:
-        outdir = '{}/post'.format
-
-    print('loading variational parameters...')
-    vp = VariationalParams.load_from_file(model_dir, include_z=False,
-            prefix=param_prefix)
-    sess = get_session()
-    init = tf.global_variables_initializer()
-    sess.run(init)
-    vp.write_score_to_file(outdir, prefix, score='all', npy=True,
-            check_exists=False)
-
-
 def _parser(subparsers=None):
     if subparsers is None:
         parser  = argparse.ArgumentParser()
@@ -266,7 +251,6 @@ def _parser(subparsers=None):
     score.add_argument('--prefix', default='')
     score.add_argument('--tab-delim', default=False, action='store_true',
         help="Store values in tab-delimited txt file instead of an npy file.")
-    score.add_argument('--safe', action='store_true', default=False)
     score.add_argument('--save-exp', action='store_true', default=False,
             help='Save expectations (the posterior means) in a subdirectory.')
 
@@ -366,11 +350,10 @@ if __name__=='__main__':
                 args.outdir = args.param_dir + '/score'
             if args.save_exp:
                 vp.write_params_to_file(args.outdir + '/expectations',
-                        npy=not args.tab_delim, check_exists=args.safe,
-                        save_variational=False, save_expectations=True)
+                        npy=not args.tab_delim, save_variational=False,
+                        save_expectations=True)
             vp.write_score_to_file(outdir=args.outdir, prefix=args.prefix,
-                    score=args.metric, npy=not args.tab_delim,
-                    check_exists=args.safe)
+                    score=args.metric, npy=not args.tab_delim)
 
         elif args.command == 'img' :
             if args.outdir is not None:
@@ -433,8 +416,5 @@ if __name__=='__main__':
                 vld_data_prefix = '{0}.vld'.format(args.prefix.rstrip('.'))
                 plots.capacity_correlation_plot_tf(vp, data=vld_data,
                         outdir=imgdir, prefix=vld_data_prefix)
-
-
-
 
 

@@ -38,7 +38,8 @@ def filter_min_cells_expressing(df, genes, min_cells):
     if min_cells < 1 and min_cells > 0:
         min_cells_frac = min_cells
         min_cells = round(min_cells_frac * df.shape[1])
-        msg = 'Requiring {}% of cells = {} cells'
+        msg = '......requiring {}% of cells = {} cells observed expressing for'
+        msg += ' gene inclusion'
         print(msg.format(100 * min_cells_frac, min_cells))
     passing = df.astype(bool).sum(axis=1) >= min_cells
     return df.loc[passing], genes.loc[passing]
@@ -179,13 +180,13 @@ def prep_and_write_matrix(infile, outdir, prefix, min_cells=10, whitelist='',
     print('...filtering by number of cells with nonzero expression')
     df_filt, genes_filt = filter_min_cells_expressing(df, genes, min_cells)
     # remove genes not on a given whitelist, if specified
-    print('...removing genes not on whitelist')
     if(len(args.whitelist)):
+        print('...removing genes not on whitelist')
         df_filt, genes_filt = filter_whitelist(df_filt, genes_filt,
                 whitelist, whitelist_key)
     # remove genes in blacklist, if specified
-    print('...removing genes on blacklist')
     if(len(args.blacklist)):
+        print('...removing genes on blacklist')
         df_filt, genes_filt = filter_blacklist(df_filt, genes_filt,
                 blacklist, blacklist_key)
 
@@ -414,7 +415,8 @@ def _parser(subparsers=None):
     prep.add_argument('-m', '--min-cells', type=float, default=10, required=False,
             help='Minimum number of cells in which we must observe at least one'
             ' transcript of a gene for the gene to pass filtering.  '
-            'If 0 < `min_cells` < 1, sets threshold to be `min_cells` * ncells.')
+            'If 0 < `min_cells` < 1, sets threshold to be `min_cells` * ncells,'
+            ' rounded to the nearest integer.')
     prep.add_argument('-t', '--test-fraction', type=float, default=0.0,
             help='Fraction of nonzero values to use for test set.')
     prep.add_argument('-v', '--validation-fraction', type=float, default=0,

@@ -8,9 +8,8 @@ import yaml
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.distributions import Poisson as tfPoisson
-from tensorflow.contrib.distributions import Gamma as tfGamma
 
-from util import get_session, log_likelihood_poisson #, poisson_entropy_approx
+from util import get_session, log_likelihood_poisson
 from hpf_hyperparams import HyperParams
 from hpf_inference import CAVICalculator
 
@@ -85,40 +84,6 @@ class HPFGamma:
                 maxval=1.5*shape_prior, shape=[], dtype=dtype)
         invrate_init = tf.random_uniform(minval=0.5*invrate_prior,
                 maxval=1.5*invrate_prior, shape=shape, dtype=dtype)
-        return HPFGamma(shape_init, invrate_init, dtype=dtype, name=name)
-
-
-    @staticmethod
-    def init_from_sums(sums, shape, nfactors, name='gamma',
-            dtype=tf.float64 ):
-        """ Initialize HPFGamma with a size shaped shape hyperparameter
-
-        Parameters
-        ----------
-        shape_prior : float
-            seed for setting shape of each independent gamma
-        invrate_prior : flost
-            seed for setting inverse rate of each independent gamma
-        shape : tuple
-            shape of matrix of gammas (numpy style shape)
-        dtype : tensorflow dtype
-            tensorflow dtype of parameters and expectations
-        name : str
-            name of the variable
-
-        Returns
-        -------
-        hpf_gamma : HPFGamma
-            HPFGamma instance with shape and inverse rate parameters randomly
-            initialized to values between 0.5x and 1.5x the given seed.  Corresponds
-            to variational parameters of each latent gamma-distributed variable.
-        """
-        inv_sums = nfactors / (sums + 1)
-        shape_init = tf.transpose(tf.random_gamma(alpha=tf.ones_like(sums),
-                beta=inv_sums, shape=[shape[1]], dtype=dtype))
-        invrate_init = tf.random_gamma(alpha=0.1, beta=1, shape=shape,
-                dtype=dtype)
-        print(123, invrate_init.get_shape())
         return HPFGamma(shape_init, invrate_init, dtype=dtype, name=name)
 
 
@@ -388,8 +353,7 @@ class VariationalParams:
     functions for evaluation both with and without data.
     """
 
-    def init_random(hyper_p, nsamples=0, phi_prior_init=[], theta_sums=None,
-            beta_sums=None, indices=None):
+    def init_random(hyper_p, nsamples=0, phi_prior_init=[]):
         """ Create instance with Initialize parameters with random offsets from
             hyperpriors
 
@@ -403,18 +367,7 @@ class VariationalParams:
         phi_prior_init : list of numpy array, optional
             dirichlet prior for auxiliary variable initialization. Length must match
             nfactors.  Symmetric dirichlet used if not given.
-        theta_sums : np array or None
-            (ncells, ) array of molecule sums across cells in training set.
-            Will be used when initializing theta weights if given.
-            Not recommended.
-        beta_sums : np array or None
-            (ngenes, ) array of molecule sums across genes in training set.
-            Will be used when initializing beta weights if given
-            Not recommended.
-        indices : np array or None
-            (nsamples, 2) array of nonzero data locations in training set.
-            Used to initialize phi and rho from theta and beta if given.
-            Recommended
+
 
         Returns
         -------
@@ -443,45 +396,22 @@ class VariationalParams:
                             name='eta')
 
             # initialize loading parameters theta and beta
-            if theta_sums is not None:
-                theta = HPFGamma.init_from_sums(
-                                shape=[hyper_p.ncells, hyper_p.nfactors],
-                                sums=theta_sums,
-                                nfactors=hyper_p.nfactors,
-                                dtype=hyper_p.dtype,
-                                name='theta')
-            else:
-                theta = HPFGamma.init_random(
-                                shape=[hyper_p.ncells, hyper_p.nfactors],
-                                shape_prior=init_a,
-                                invrate_prior=init_ap / init_bp,
-                                dtype=hyper_p.dtype,
-                                name='theta')
+            theta = HPFGamma.init_random(
+                            shape=[hyper_p.ncells, hyper_p.nfactors],
+                            shape_prior=init_a,
+                            invrate_prior=init_ap / init_bp,
+                            dtype=hyper_p.dtype,
+                            name='theta')
 
-            if beta_sums is not None:
-                beta = HPFGamma.init_from_sums(
-                                shape=[hyper_p.ngenes, hyper_p.nfactors],
-                                sums=beta_sums,
-                                nfactors=hyper_p.nfactors,
-                                dtype=hyper_p.dtype,
-                                name='beta')
-            else:
-                beta = HPFGamma.init_random(
-                                shape=[hyper_p.ngenes, hyper_p.nfactors],
-                                shape_prior=init_c,
-                                invrate_prior=init_cp / init_dp,
-                                dtype=hyper_p.dtype,
-                                name='beta')
+            beta = HPFGamma.init_random(
+                            shape=[hyper_p.ngenes, hyper_p.nfactors],
+                            shape_prior=init_c,
+                            invrate_prior=init_cp / init_dp,
+                            dtype=hyper_p.dtype,
+                            name='beta')
 
             if nsamples is not None and nsamples > 0:
-                if indices is not None:
-                    indices = tf.cast(indices, tf.int32)
-                    thetas = tf.gather(theta.e_logx, indices[:,0])
-                    betas = tf.gather(beta.e_logx, indices[:,1])
-                    log_rho_init = thetas + betas
-                    z = HPFMultinomial(log_rho_init=log_rho_init,
-                            indices=indices)
-                elif len(phi_prior_init) == hyper_p.nfactors:
+                if len(phi_prior_init) == hyper_p.nfactors:
                     z = HPFMultinomial.init_random_asymmetric(
                             nsamples=nsamples,
                             dirichlet_prior=phi_prior_init,
@@ -1137,8 +1067,7 @@ class VariationalParams:
                         + ' VariationalParams instance')
 
 
-    def write_score_to_file(self, outdir, prefix='', score='all', npy=True,
-            check_exists=False):
+    def write_score_to_file(self, outdir, prefix='', score='all', npy=True):
         """ Write scores to file
 
         Parameters
@@ -1153,19 +1082,9 @@ class VariationalParams:
         npy : bool, optional
             If True, save in binary .npy format (default behaviour). Otherwise save
             in space-delimited format
-        check_exists : bool, optional
-            If True, check if the output directory exists and add datetime string
-            if it does. Default false.
         """
-        if check_exists:
-            try:
-                os.makedirs(outdir, exist_ok=False)
-            except OSError as e:
-                outdir = '{}_{}'.format(outdir,
-                        datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-                os.makedirs(outdir, exist_ok=False)
-        else:
-            os.makedirs(outdir, exist_ok=True)
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
 
         outstr = '{0}/{1}{2}.{3}'.format(outdir, prefix, '{}',
                 'npy' if npy else 'txt')

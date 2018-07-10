@@ -9,6 +9,7 @@ from collections import defaultdict
 
 import yaml
 import numpy as np
+import pandas # not used, but corrects weird collision with tensorflow
 import tensorflow as tf
 
 from scio import load_sparse_exp
@@ -349,7 +350,9 @@ def _parser(subparsers=None):
 
     # io parameters
     train.add_argument('-i', '--indir', type=str, required=True, help=
-            "Directory with train.tsv")
+            "Directory which contains train.tsv, preprocessing.log.yaml if not"
+            " specified with --preproceses-log, and any other training files."
+            )
     train.add_argument('-o', '--outdir', type=str, required=True, help=
             "Directory to write results.")
     train.add_argument('-p', '--prefix', type=str, default='', help=
@@ -360,23 +363,25 @@ def _parser(subparsers=None):
             "Number of hidden factors.")
     train.add_argument('-pre', '--preprocess-log', default='',
             help="yaml preprocessing.log file produced by preprocessing command"
-            "command.  Overrides  -bp and -dp with: "
+            "command.  Overridden by -bp and -dp. Sets  bp and dp to: "
             "     bp = round('train_mean_mol_per_cell' * ap / "
             "       'train_var_mol_per_cell', 10) and "
-            "    dp = round('train_mean_mol_per_gene' * cp / "
+            "     dp = round('train_mean_mol_per_gene' * cp / "
             "       'train_var_mol_per_gene', 10).")
     train.add_argument('-a', default=0.3, type=float, help='Shape parameter for'
                 ' cell factors. -1 => 1/k, -2 => 1/sqrt(k), -3 => 1/ln(k).')
     train.add_argument('-ap', default=1.0, type=float, help='Shape param for cell'
             'capacity. (default 1)')
     train.add_argument('-bp', type=float, help='Cell capacity inverse scale'
-            'hyperparam bp. Overridden by -pre option.')
+            'hyperparam bp. Overrides preprocessing log, but may be altered '
+            'by clipping. (see --clip and --no-clip)')
     train.add_argument('-c', default=0.3, type=float, help='Shape parameter for '
         'gene factors. -1 => 1/k, -2 => 1/sqrt(k), -3 => 1/ln(k). (default 0.3)')
     train.add_argument('-cp',  default=1.0, type=float, help='Shape param for gene'
             'capacity. (default 1)')
     train.add_argument('-dp', type=float, help='Gene capacity inverse scale'
-            'hyperparam dp. Overridden by -pre option.')
+            'hyperparam dp. Overrides preprocessing log, but may be altered by '
+            'clipping (see --clip and --no-clip).')
 
     # training parameters
     train.add_argument('-t', '--ntrials',  type=int, default=1, help='Number of'
@@ -403,7 +408,7 @@ def _parser(subparsers=None):
     train.add_argument('--dtype', default='float64')
     train.add_argument('--clip', dest='clip', default=True, action='store_true',
         help='Clip hyperparameters for numerical stability if they fall outside '
-            'a reasonable range.  Default True.')
+            'a reasonable range (absolute or of each other).  Default True.')
     train.add_argument('--no-clip', dest='clip', action='store_false',
         help='Don\'t clip  hyperparameters for stability. Not advisable, '
             ' but rarely needed in data with UMIs.')
@@ -473,20 +478,21 @@ def _parseargs_post(args):
     args :
         updated arguments preprocessing file, performs clipping, etc.
     """
-    if args.preprocess_log is not None and len(args.preprocess_log)==0:
+    # default behavior, look for preprocessing log
+    if len(args.preprocess_log)==0:
         potential_path = args.indir + '/preprocessing.log.yaml'
         if os.path.exists(potential_path):
             args.preprocess_log = potential_path
-    if len(args.preprocess_log):
-        if not os.path.exists(args.preprocess_log):
-            args.preprocess_log = args.preprocess_log + '/preprocessing.log.yaml'
+    if len(args.preprocess_log)>0:
         try:
             with open(args.preprocess_log, 'r') as stream:
                 plog = yaml.load(stream)
-                args.bp = round(plog['train_mean_mol_per_cell'] * args.ap/ (
-                    plog['train_var_mol_per_cell']), 10)
-                args.dp = round(plog['train_mean_mol_per_gene'] * args.cp/ (
-                    plog['train_var_mol_per_gene']), 10)
+                if args.bp is None:
+                    args.bp = round(plog['train_mean_mol_per_cell'] * args.ap/ (
+                        plog['train_var_mol_per_cell']), 10)
+                if args.dp is None:
+                    args.dp = round(plog['train_mean_mol_per_gene'] * args.cp/ (
+                        plog['train_var_mol_per_gene']), 10)
 
                 # clip vales of dp and cp to be within a multiple of max_dif of
                 # one another if they are not and args.clip is true. note this
@@ -498,10 +504,10 @@ def _parseargs_post(args):
                     args.dp = args.bp / max_dif
         except OSError as e:
             print(e)
-            print('Error loading log file. Attempting to use given params.')
+            print('Error loading log file. Attempting to use given bp and dp.')
         except yaml.YAMLError as e:
             print(e)
-            print('Error reading yaml log file. Attempting to use given params.')
+            print('Error reading yaml log file. Attempting to use given bp and dp.')
     if args.a == -1 :
         args.a = round(1 / args.nfactors, 4)
     elif args.a == -2 :
@@ -563,6 +569,7 @@ if __name__=='__main__':
     if not os.path.exists(args.outdir):
         os.makedirs(args.outdir)
 
+    # setup logging
     logging_options = dict( log_elbo=args.log_elbo, log_llh=args.log_llh,
             log_mse=args.log_mse, log_mae=args.log_mae,
             log_xi=args.log_xi, log_eta=args.log_eta, log_theta=args.log_theta,
