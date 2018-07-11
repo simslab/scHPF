@@ -2,7 +2,7 @@
 
 Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](bioarxiv_link), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
 
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](bioarxiv_link).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorxiv](biorxiv_link).
 
 ## Requirements
 Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8 on Ubuntu and Mac.
@@ -25,17 +25,17 @@ Binaries for other operating systems are available in the [tensorflow installati
 Once you have completed requirements, clone this git reposity.
 
 ## Preprocessing
-scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The tab-delimitted matrix should be formatted like:
+scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The whitespace-delimited matrix should be formatted like:
 > <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
 
-The matrix should not have a header. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
+The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
 
-To preprocess the tab-delimited count matrix for a typical run, use the command:
+To preprocess the whitespace-delimited count matrix for a typical run, use the command:
 ```
 python SCHPF_HOME/scHPF/preprocessing.py --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 5 --whitelist GENE_WHITELIST
 ```
 
-Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, tab-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 5 cells.  After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.matrix.txt', a list of genes 'PREFIX.genes.txt', a preprocessing log file 'preprocessing.log.yaml', and a sparse-formatted training data file 'train.tsv'. More options and details for preprocessing can be viewed with 
+Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, whitespace-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 5 cells.  After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.matrix.txt', a list of genes 'PREFIX.genes.txt', a preprocessing log file 'preprocessing.log.yaml', and a sparse-formatted training data file 'train.tsv'. More options and details for preprocessing can be viewed with 
 ```
 python SCHPF_HOME/scHPF/preprocessing.py -h
 ```
@@ -55,7 +55,7 @@ python SCHPF_HOME/scHPF/train.py -h
 ## Extracting scores
 To extract gene and cell scores from a trained scHPF model, run
 ```
-python SCHPF_HOME/scHPF/postprocessing.py score --param-dir PARAM_DIR --tab-delim
+python SCHPF_HOME/scHPF/postprocessing.py score --param-dir PARAM_DIR
 ```
 Where PARAM\_DIR is the subdirectory of TRAINING\_OUTPUT\_DIR in which the trained model was saved by the train.py command.  Cell and gene scores will be saved in 'TRAINING\_OUTPUT\_DIR/score/cell\_hnorm.txt' and 'TRAINING\_OUTPUT\_DIR/score/gene\_hnorm.txt'. 'cell\_hnorm.txt' is a cell by factor matrix of cell scores, where cells are in the same order as the original input matrix. 'gene\_hnorm.txt' is a gene by factor matrix of gene scores, where genes are in the same order as the genes in the PREFIX.genes.txt file produced by the preprocessing command.
 

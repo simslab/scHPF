@@ -249,8 +249,8 @@ def _parser(subparsers=None):
             "manuscript."
             )
     score.add_argument('--prefix', default='')
-    score.add_argument('--tab-delim', default=False, action='store_true',
-        help="Store values in tab-delimited txt file instead of an npy file.")
+    score.add_argument('-npy', default=False, action='store_true',
+        help="Store values in npy files instead of whitespace delimited txt files")
     score.add_argument('--save-exp', action='store_true', default=False,
             help='Save expectations (the posterior means) in a subdirectory.')
 
@@ -350,10 +350,10 @@ if __name__=='__main__':
                 args.outdir = args.param_dir + '/score'
             if args.save_exp:
                 vp.write_params_to_file(args.outdir + '/expectations',
-                        npy=not args.tab_delim, save_variational=False,
+                        npy=args.npy, save_variational=False,
                         save_expectations=True)
             vp.write_score_to_file(outdir=args.outdir, prefix=args.prefix,
-                    score=args.metric, npy=not args.tab_delim)
+                    score=args.metric, npy=args.npy)
 
         elif args.command == 'img' :
             if args.outdir is not None:

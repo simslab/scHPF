@@ -409,7 +409,9 @@ def _parser(subparsers=None):
         prep = subparsers.add_parser('prep')
 
     prep.add_argument('-i', '--input', type=str, required=True,
-            help='Input expression matrix formatted: ENS_ID\tGENE\tCELL0\tCELL1\t...')
+            help='Input expression matrix formatted: ENSEMBL_ID\tGENE_SYMBOL'
+                '\tUMICOUNT_CELL0\tUMICOUNT_CELL1\t... Matrix may not have a'
+                ' header, but may be compressed with gzip or bzip2.')
     prep.add_argument('-o', '--outdir', type=str, required=True)
     prep.add_argument('-p', '--prefix', type=str, required=True)
     prep.add_argument('-m', '--min-cells', type=float, default=10, required=False,
@@ -430,18 +432,19 @@ def _parser(subparsers=None):
     prep.add_argument('-vw', '--validation-weighted', default=False,
             action='store_true',
             help='Weight probability of validation set selection by inverse of '
-                'value.')
+            'value.')
     prep.add_argument('-w', '--whitelist', default='',
-            help='File where first column is list of ensembl gene ids to accept,'
-             ' and second column is gene symbol. Only performed if file '
-             'given. Superseded by blacklist')
+            help='File where first column is list of ENSEMBL gene ids to accept,'
+            ' and second column is gene symbol. Only performed if file '
+            'given. Superseded by blacklist')
     prep.add_argument('-b', '--blacklist', default='',
-            help='File where first column is list of ensembl gene ids to exclud,'
-             ' and second column is gene symbol. Only performed if file '
-             'given. Supersedes whitelist.')
+            help='File where first column is list of ensembl gene ids to exclude,'
+            ' and second column is gene symbol. Only performed if file '
+            'given. Supersedes whitelist.')
     prep.add_argument('--filter-by-gene-name', default=False, action='store_true',
-            help='Use gene name rather than ens symbol to filter.  Applies to '
-            'both whitelist and blacklist.')
+            help='Use gene symbol rather than ENSEMBL id to filter.  Useful for '
+            'datasets where only gene symbols are given. Applies to both '
+            'whitelist and blacklist.')
     return prep
 
 
