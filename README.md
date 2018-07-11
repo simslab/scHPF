@@ -5,7 +5,7 @@ Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](bioarxiv
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](bioarxiv_link).
 
 ## Requirements
-Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8.
+Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8 on Ubuntu and Mac.
 
 scHPF requires the Python packages:
 - numpy
@@ -21,6 +21,8 @@ source activate tensorflow_p36
 pip install --ignore-installed --upgrade https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.8.0-py3-none-any.whl
 ```
 Binaries for other operating systems are available in the [tensorflow installation guide](https://www.tensorflow.org/install/).  Regardless of how you install, we **strongly** recommend [validating your installation](https://www.tensorflow.org/install/install_linux#run_a_short_tensorflow_program) before proceeding.
+
+Once you have completed requirements, clone this git reposity.
 
 ## Preprocessing
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The tab-delimitted matrix should be formatted like:
