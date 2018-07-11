@@ -1,10 +1,10 @@
 # Single-cell Hierarchical Poisson Factorization
 
-Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](bioarxiv_link), as described in the forthcoming manuscript: *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
+Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](bioarxiv_link), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
 
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to model the sparsity of scRNA-seq data and avoid prior normalization. We have found scHPF especially useful in scRNA-seq of complex tissues with continuous expression programs that are not fully described by clustering or developmental order. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](bioarxiv_link).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on bioarxiv](bioarxiv_link).
 
-## Installation
+## Requirements
 Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8.
 
 scHPF requires the Python packages:
@@ -58,5 +58,4 @@ python SCHPF_HOME/scHPF/postprocessing.py score --param-dir PARAM_DIR --tab-deli
 Where PARAM\_DIR is the subdirectory of TRAINING\_OUTPUT\_DIR in which the trained model was saved by the train.py command.  Cell and gene scores will be saved in 'TRAINING\_OUTPUT\_DIR/score/cell\_hnorm.txt' and 'TRAINING\_OUTPUT\_DIR/score/gene\_hnorm.txt'. 'cell\_hnorm.txt' is a cell by factor matrix of cell scores, where cells are in the same order as the original input matrix. 'gene\_hnorm.txt' is a gene by factor matrix of gene scores, where genes are in the same order as the genes in the PREFIX.genes.txt file produced by the preprocessing command.
 
 ## ETC
-More detailed tutorials on using scHPF to analyze scRNA-seq data, including code for enrichment analysis on factors, worked jupyter notebooks, and an example selecting the number of factors will be posted in the coming days. 
-
+More detailed tutorials on using scHPF to analyze scRNA-seq data, including code for enrichment analysis on factors, worked jupyter notebooks, and an example selecting the number of factors will be posted in the coming days.
