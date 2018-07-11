@@ -1,8 +1,8 @@
 # Single-cell Hierarchical Poisson Factorization
 
-Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](bioarxiv_link), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
+Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](https://www.biorxiv.org/content/early/2018/07/11/367003), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
 
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorxiv](biorxiv_link).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
 
 ## Requirements
 Code for preprocessing, training, and postprocessing has been tested with Python 3.6 and Tensorflow 1.3/1.8 on Ubuntu and Mac.
@@ -24,7 +24,8 @@ Binaries for other operating systems are available in the [tensorflow installati
 
 Once you have completed requirements, clone this git reposity.
 
-## Preprocessing
+## scHPF workflow
+### Preprocessing
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The whitespace-delimited matrix should be formatted like:
 > <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
 
@@ -40,7 +41,7 @@ Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, wh
 python SCHPF_HOME/scHPF/preprocessing.py -h
 ```
 
-## Training
+### Training
 Both computation time and memory requirements for scHPF scale with the number of non-zero values in the dataset and the number of factors in the model.  For a typical 3' scRNA-seq dataset with UMIs, 90-95% sparsity, and up to 3,000 or 4,000 cells, the model can reasonably be trained on a laptop with a dual-core i7 processor and 16GB RAM (it may run reasonably at lower specs, but we haven't tested it).  For larger numbers of cells, faster computation, or running multiple training sessions at once, we recommend a remote instance such as an AWS EC2 m4.xlarge, m4.2xlarge, or m4.4xlarge instance.  Datasets with more than 15,000 cells and a large number of factors may benefit from memory-intensive instance types and the training flag `--low-mem`, which avoids some memory-intensive summary statistic computations. 
 
 Inference can be run using the train.py program.  For example:
@@ -52,12 +53,30 @@ This command performs approximate Bayesian inference on scHPF with, in this inst
 python SCHPF_HOME/scHPF/train.py -h
 ```
 
-## Extracting scores
+### Extracting scores
 To extract gene and cell scores from a trained scHPF model, run
 ```
 python SCHPF_HOME/scHPF/postprocessing.py score --param-dir PARAM_DIR
 ```
 Where PARAM\_DIR is the subdirectory of TRAINING\_OUTPUT\_DIR in which the trained model was saved by the train.py command.  Cell and gene scores will be saved in 'TRAINING\_OUTPUT\_DIR/score/cell\_hnorm.txt' and 'TRAINING\_OUTPUT\_DIR/score/gene\_hnorm.txt'. 'cell\_hnorm.txt' is a cell by factor matrix of cell scores, where cells are in the same order as the original input matrix. 'gene\_hnorm.txt' is a gene by factor matrix of gene scores, where genes are in the same order as the genes in the PREFIX.genes.txt file produced by the preprocessing command.
 
-## ETC
-More detailed tutorials on using scHPF to analyze scRNA-seq data, including code for enrichment analysis on factors, worked jupyter notebooks, and an example selecting the number of factors will be posted in the coming days.
+##  Citation
+
+```
+@article {biorxiv2018scHPF,
+    author = {Levitin, Hanna Mendes and Yuan, Jinzhou and Cheng, Yim Ling and Ruiz, Francisco J.R. and Bush, Erin C. and Bruce, Jeffrey N. and Canoll, Peter and Iavarone, Antonio and Lasorella, Anna and Blei, David M. and Sims, Peter A.},
+    title = {De novo Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization},
+    year = {2018},
+    doi = {10.1101/367003},
+    publisher = {Cold Spring Harbor Laboratory},
+    URL = {https://www.biorxiv.org/content/early/2018/07/11/367003},
+    eprint = {https://www.biorxiv.org/content/early/2018/07/11/367003.full.pdf},
+    journal = {bioRxiv}
+}
+```
+
+## Help and support
+More detailed tutorials on using scHPF to analyze scRNA-seq data, such as code for enrichment analysis on factors, worked jupyter notebooks, and an example selecting the number of factors will be posted soon. In the meantime please [open an issue](https://github.com/simslab/scHPF/issues/new) and I will try to provide whatever help and guidance I can.
+
+## Contributing
+Contributions to scHPF are welcome. Please get in touch if you would like to discuss. To contribute, please [fork scHPF](https://github.com/simslab/scHPF/issues#fork-destination-box), make your changes, and submit a pull request.
