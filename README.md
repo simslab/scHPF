@@ -14,13 +14,13 @@ scHPF requires the Python packages:
 - tensorflow (for CPU)
 - (optional) seaborn
 
-For best performance, we recommend [installing tensorflow from source](https://www.tensorflow.org/install/install_source) using the MKL.  However, for easier startup, tensorflow can also be [installed from a prebuilt binary](https://www.tensorflow.org/install/). For example, the environment can be set up with anaconda on Mac as follows:
+For easy startup, tensorflow can also be [installed from a prebuilt binary](https://www.tensorflow.org/install/). For example, the environment can be set up with anaconda on Mac as follows:
 ```
 conda create -n tensorflow_p36 pip python=3.6 numpy scipy pandas pyyaml seaborn cython
 source activate tensorflow_p36
 pip install --ignore-installed --upgrade https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.8.0-py3-none-any.whl
 ```
-Binaries for other operating systems are available in the [tensorflow installation guide](https://www.tensorflow.org/install/).  Regardless of how you install, we **strongly** recommend [validating your installation](https://www.tensorflow.org/install/install_linux#run_a_short_tensorflow_program) before proceeding.
+Binaries for other operating systems are available in the [tensorflow installation guide](https://www.tensorflow.org/install/).  Installing [tensorflow from source](https://www.tensorflow.org/install/install_source) may increase computational performance.  Regardless of how you install, we **strongly** recommend [validating your installation](https://www.tensorflow.org/install/install_linux#run_a_short_tensorflow_program) before proceeding.
 
 Once you have completed requirements, clone this git reposity.
 
