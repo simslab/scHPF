@@ -12,9 +12,9 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from util import get_session, create_sparse_tensor
-from scio import write_exp_matrix, load_sparse_exp
-from hpf_params import HyperParams, VariationalParams
+from .util import get_session, create_sparse_tensor
+from .scio import write_exp_matrix, load_sparse_exp
+from .hpf_params import HyperParams, VariationalParams
 
 
 class plots:

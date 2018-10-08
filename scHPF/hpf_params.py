@@ -9,9 +9,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.distributions import Poisson as tfPoisson
 
-from util import get_session, log_likelihood_poisson
-from hpf_hyperparams import HyperParams
-from hpf_inference import CAVICalculator
+from .util import get_session, log_likelihood_poisson
+from .hpf_hyperparams import HyperParams
+from .hpf_inference import CAVICalculator
 
 
 class HPFGamma:
