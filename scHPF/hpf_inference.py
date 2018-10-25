@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 import json
 
-from util import get_session, get_median_1d
-from hpf_metrics import HPFMetrics
+from .util import get_session, get_median_1d
+from .hpf_metrics import HPFMetrics
 
 
 class HPFInference(object):

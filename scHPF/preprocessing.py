@@ -12,7 +12,7 @@ import yaml
 import numpy as np
 import pandas as pd
 
-import scio
+import scHPF.scio as scio
 
 
 def filter_min_cells_expressing(df, genes, min_cells):

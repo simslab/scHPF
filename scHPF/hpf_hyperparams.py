@@ -4,7 +4,7 @@ import yaml
 import numpy as np
 import tensorflow as tf
 
-from util import get_session
+from .util import get_session
 
 class HyperParams:
     """
