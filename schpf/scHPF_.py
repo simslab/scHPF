@@ -7,7 +7,7 @@ from scipy.special import digamma, gammaln, psi
 from sklearn.base import BaseEstimator
 
 # TODO warn if can't import, and allow computation with slow
-from hpf_numba import *
+from schpf.hpf_numba import *
 
 
 class HPF_Gamma(object):

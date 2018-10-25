@@ -136,7 +136,7 @@ def compute_loading_shape_update(Xphi_data, X_keep, nkeep, shape_prior):
     return result
 
 
-@numba.njit(cache=True, fastmath=True)
+@numba.njit(fastmath=True)
 def compute_loading_rate_update(prior_vi_shape, prior_vi_rate,
         other_loading_vi_shape, other_loading_vi_rate):
     # shorter names
@@ -156,7 +156,7 @@ def compute_loading_rate_update(prior_vi_shape, prior_vi_rate,
     return result
 
 
-@numba.njit(cache=True, fastmath=True)
+@numba.njit(fastmath=True)
 def compute_capacity_rate_update(loading_vi_shape, loading_vi_rate, prior_rate):
     result = prior_rate * np.ones((loading_vi_shape.shape[0],),
             dtype=np.float64)
