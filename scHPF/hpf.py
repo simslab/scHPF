@@ -4,6 +4,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.misc import logsumexp
 from scipy.special import digamma, gammaln, psi
+from sklearn.base import BaseEstimator
 
 # TODO warn if can't import, and allow computation with slow
 from hpf_numba import *
@@ -99,7 +100,7 @@ class HPF_Gamma(object):
         return np.stack(samples).T
 
 
-class scHPF(object):
+class scHPF(BaseEstimator):
     """HPF as described in ____
 
     Parameters
@@ -288,7 +289,7 @@ class scHPF(object):
 
 
     def _fit(self, X, validation_data=None, freeze_genes=False, reinit=True,
-            verbose=True, min_iter=None):
+            verbose=True, min_iter=None, message_function=None):
         """Combined internal fit/transform function
 
         Parameters
@@ -305,7 +306,12 @@ class scHPF(object):
         verbose: bool (optional, default True)
             Print messages at each check_freq
         min_iter: int (optional, default None)
-            If not
+            replaces self.min_iter if given
+        message_function : function  (optional, default None)
+            A function that takes arguments theta, beta, and t and, if
+            given, is called at check_interval. Intended use is
+            to check additional stats during training, potentially with
+            hardcoded data, but is unrestricted.  Use at own risk.
 
         Returns
         -------
@@ -380,6 +386,8 @@ class scHPF(object):
                 msg = '[Iter. {0: >4}]  loss:{1:.4f}  pct:{2:.9f}'.format(t, curr,
                         pct_change[-1])
                 print(msg)
+                if message_function is not None:
+                    message_function(theta, beta, t)
 
 
                 # check convergence
