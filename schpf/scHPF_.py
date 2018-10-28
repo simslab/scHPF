@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -40,7 +40,7 @@ class HPF_Gamma(object):
         -------
             A randomly initialized HPF_Gamma instance
         """
-        vi_shape = np.random.uniform(0.5 * shape_prior, 2.0 * shape_prior,
+        vi_shape = np.random.uniform(0.5 * shape_prior, 1.5 * shape_prior,
                                      dims).astype('float64')
         vi_rate  = np.random.uniform(0.5 * rate_prior, 1.5 * rate_prior,
                                      dims).astype('float64')
@@ -330,7 +330,6 @@ class scHPF(BaseEstimator):
             Learned variational distributions for beta. Unchanged if
             freeze_genes.
         """
-
         # local (convenience) vars for model
         nfactors, (ncells, ngenes) = self.nfactors, X.shape
         (a, ap, c, cp) = (self.a, self.ap, self.c, self.cp)
@@ -338,28 +337,25 @@ class scHPF(BaseEstimator):
         # get empirically set hyperparameters and variational distributions
         (bp, dp, xi, eta, theta, beta) = self._setup(X, freeze_genes, reinit)
 
-        # Make (constant) updates for hierarchical prior vi_shape
+        # Make first updates for hierarchical prior
+        # (vi_shape is constant, but want to update full distribution)
         xi.vi_shape[:] = ap + nfactors * a
+        xi.vi_rate = bp + theta.e_x.sum(1)
         if not freeze_genes:
             eta.vi_shape[:] = cp + nfactors * c
+            eta.vi_rate = dp + beta.e_x.sum(1)
 
         pct_change = []
         min_iter = self.min_iter if min_iter is None else min_iter
         for t in range(self.max_iter):
             if t==0 and reinit: #randomize phi for first iteration
-                Xphi_data = X.data[:,None] * np.random.dirichlet(
-                        np.ones(nfactors), X.data.shape[0])
+                random_phi = np.random.dirichlet( 0.25*np.ones(nfactors),
+                        X.data.shape[0])
+                Xphi_data = X.data[:,None] * random_phi
             else:
                 Xphi_data = compute_Xphi_data(X.data, X.row, X.col,
                                             theta.vi_shape, theta.vi_rate,
                                             beta.vi_shape, beta.vi_rate)
-
-            # cell update
-            theta.vi_shape = compute_loading_shape_update(Xphi_data, X.row,
-                                                          ncells, a)
-            theta.vi_rate = compute_loading_rate_update(xi.vi_shape, xi.vi_rate,
-                    beta.vi_shape, beta.vi_rate)
-            xi.vi_rate = bp + theta.e_x.sum(1)
 
             # gene updates (if not frozen)
             if not freeze_genes:
@@ -368,6 +364,14 @@ class scHPF(BaseEstimator):
                 beta.vi_rate = compute_loading_rate_update(eta.vi_shape,
                         eta.vi_rate, theta.vi_shape, theta.vi_rate)
                 eta.vi_rate = dp + beta.e_x.sum(1)
+
+            # cell updates
+            theta.vi_shape = compute_loading_shape_update(Xphi_data, X.row,
+                                                          ncells, a)
+            theta.vi_rate = compute_loading_rate_update(xi.vi_shape, xi.vi_rate,
+                    beta.vi_shape, beta.vi_rate)
+            xi.vi_rate = bp + theta.e_x.sum(1)
+
 
             # record llh/percent change and check for convergence
             if t % self.check_freq == 0:
@@ -383,9 +387,10 @@ class scHPF(BaseEstimator):
                     pct_change.append(100 * (curr - prev) / np.abs(prev))
                 except IndexError:
                     pct_change.append(100)
-                msg = '[Iter. {0: >4}]  loss:{1:.4f}  pct:{2:.9f}'.format(t, curr,
-                        pct_change[-1])
-                print(msg)
+                if verbose:
+                    msg = '[Iter. {0: >4}]  loss:{1:.6f}  pct:{2:.9f}'.format(
+                            t, curr, pct_change[-1])
+                    print(msg)
                 if message_function is not None:
                     message_function(theta, beta, t)
 
