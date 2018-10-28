@@ -79,13 +79,13 @@ def _model_stat_msg(theta, beta, validation=None, test=None):
         vresid = xhat[validation.row, validation.col] - validation.data
         vmae = np.mean(np.abs(vresid))
         vmse = np.mean(vresid**2)
-        msg+='\tvmae:{}  vmse:{}'.format(vmae, vmse,)
+        msg+='\tvmae:{0:.5f}  vmse:{1:.5f}'.format(vmae, vmse,)
 
     if test is not None:
         tresid = xhat[test.row, test.col] - test.data
         tmae = np.mean(np.abs(tresid))
         tmse = np.mean(tresid**2)
-        msg+='\ttmae:{}  tmse:{}'.format(tmae, tmse)
+        msg+='\ttmae:{0:.5f}  tmse:{1:.5f}'.format(tmae, tmse)
 
     if len(msg):
         print(msg)
@@ -97,6 +97,9 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     if args.cmd == 'train':
+        if not os.path.exists(args.outdir):
+            os.makedirs(args.outdir)
+
         # load data
         print( 'Loading data...' )
         train = load_coo(args.input)
@@ -148,3 +151,7 @@ if __name__=='__main__':
                 best_model = model
                 best_loss = loss
                 print('New best!')
+
+        outname = '{}/scHPF_K{}_epsilon{}_{}trials.joblib'.format(
+                args.outdir, args.nfactors, args.epsilon, args.ntrials)
+        joblib.dumps(best_model, outname)

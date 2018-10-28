@@ -340,16 +340,14 @@ class scHPF(BaseEstimator):
         # Make first updates for hierarchical prior
         # (vi_shape is constant, but want to update full distribution)
         xi.vi_shape[:] = ap + nfactors * a
-        xi.vi_rate = bp + theta.e_x.sum(1)
         if not freeze_genes:
             eta.vi_shape[:] = cp + nfactors * c
-            eta.vi_rate = dp + beta.e_x.sum(1)
 
         pct_change = []
         min_iter = self.min_iter if min_iter is None else min_iter
         for t in range(self.max_iter):
             if t==0 and reinit: #randomize phi for first iteration
-                random_phi = np.random.dirichlet( 0.25*np.ones(nfactors),
+                random_phi = np.random.dirichlet( np.ones(nfactors),
                         X.data.shape[0])
                 Xphi_data = X.data[:,None] * random_phi
             else:
