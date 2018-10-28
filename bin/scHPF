@@ -110,6 +110,9 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     if args.cmd == 'train':
+        if not os.path.exists(args.outdir):
+            os.makedirs(args.outdir)
+
         # load data
         print( 'Loading data...' )
         train = load_coo(args.input)
@@ -163,3 +166,6 @@ if __name__=='__main__':
                 best_model = model
                 best_loss = loss
                 print('New best!')
+
+        outname = '{}/scHPF_K{}_epsilon{}_{}trials.joblib'
+        joblib.dumps(model, outname)
