@@ -1,0 +1,165 @@
+#! /usr/bin/env python
+
+import os
+import argparse
+
+import numpy as np
+from sklearn.externals import joblib
+
+from schpf import scHPF
+from schpf.preprocessing import load_coo
+
+def _parser():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='cmd')
+
+    ### Preprocess command
+    prep = subparsers.add_parser('prep')
+    # TODO
+
+    ###### Train command
+    train = subparsers.add_parser('train')
+    # data and saving
+    train.add_argument('-i', '--input', required=True,
+            help='Training data.  Expects a tab-separated file with zero-'
+            'indexed integer cell and gene ids, and integer nonzero UMI '
+            'counts formatted like: CELL_IX   GENE_IX   UMI_COUNT')
+    train.add_argument('-o', '--outdir', required=True,
+            help='Directory in which to save scHPF model. Will be created'
+            'if does not exist.')
+    train.add_argument('-v', '--validation',
+            help='Validation data.  Expects a tab-separated file with zero-'
+            'indexed integer cell and gene ids, and integer, non-zero UMI '
+            'counts formatted like:CELL_IX   GENE_IX   UMI_COUNT')
+    train.add_argument('--test',
+            help='Test data.  Expects a tab-separated file with zero-'
+            'indexed integer cell and gene ids, and integer, non-zero UMI '
+            'counts formatted like:CELL_IX   GENE_IX   UMI_COUNT')
+
+    # Require model hyperparameter
+    train.add_argument('-k', '--nfactors', type=int, required=True,
+            help='Number of factors.')
+    # Other model hyperparameters that are set automatically
+    train.add_argument('-a', default=0.3, type=float, 
+            help='Shape hyperparameter for cell factors (theta).')
+    train.add_argument('-ap', default=1.0, type=float, 
+            help='Shape hyperparameter for cell capacity (xi)')
+    train.add_argument('-bp', type=float,  default=None,
+            help='Cell capacity inverse scale hyperparam bp. Recommended to '
+            'leave as None, so it can be set empirically from the data.')
+    train.add_argument('-c', default=0.3, type=float, 
+            help='Shape hyperparameter for gene factors (beta).')
+    train.add_argument('-cp',  default=1.0, type=float, 
+            help='Shape hyperparameter for gene capacity (eta).')
+    train.add_argument('-dp', type=float, 
+            help='Gene capacity inverse scale hyperparam dp. Recommended to '
+            'leave as None, so it can be set empirically from the data.')
+
+
+    # training parameters
+    train.add_argument('--verbose', action='store_true', default=False)
+    train.add_argument('-t', '--ntrials',  type=int, default=1,
+            help='Number of times to run scHPF, selecting the trial with '
+            'best loss on the validation set, if given, or the best loss '
+            'on the training set if no validation set is given.')
+    train.add_argument('-M', '--max-iter', type=int, default=1000,
+            help='Maximum iterations. Default 1000.')
+    train.add_argument('-m', '--min-iter', type=int, default=30,
+            help='Minimum iterations. Default 30')
+    train.add_argument('-e',  '--epsilon', type=float, default=0.001,
+            help='Minimum percent decrease in loss between checks to continue '
+            'inference (convergence criteria). [Default 0.001].')
+    train.add_argument('-f', '--check_freq', type=int, default=10,
+            help='Number of iterations to run between convergence checks. '
+            'Default 10.')
+    train.add_argument('-bna', '--better-than-n-ago', default=5, type=int,
+            help= 'Stop condition if loss is getting worse.  Stops training '
+            'if loss is worse than `better_than_n_ago`*`check_freq` training steps '
+            'ago and getting worse. Normally not necessary to change.')
+
+    train.add_argument('--benchmarking', action='store_true')
+
+
+    ### Score command
+    # TODO
+
+    return parser
+
+
+def _model_stat_msg(theta, beta, validation=None, test=None):
+    xhat = theta.e_x @ beta.e_x.T
+
+    if validation is not None:
+        vresid = xhat[validation.row, validation.col] - validation.data
+        vmae = np.mean(np.abs(vresid))
+        vmse = np.mean(vresid**2)
+        msg='\tvmae:{}  vmse:{}'.format(vmae, vmse,)
+        print(msg)
+
+    if test is not None:
+        vresid = xhat[test.row, test.col] - test.data
+        tmae = np.mean(np.abs(tresid))
+        bmse = np.mean(tresid**2)
+        msg='\ttmae:{}  tmse:{}'.format(tmae, tmse)
+        print(msg)
+
+
+
+if __name__=='__main__':
+    parser = _parser()
+    args = parser.parse_args()
+
+    if args.cmd == 'train':
+        # load data
+        print( 'Loading data...' )
+        train = load_coo(args.input)
+
+        if args.validation is not None:
+            validation = load_coo(args.validation)
+        else:
+            validation = None
+
+        if args.test is not None:
+            test = load_coo(args.test)
+        else:
+            test = None
+
+        if args.benchmarking:
+            my_msg = lambda theta, beta, _ : _model_stat_msg(theta,beta,
+                validation,test)
+            vdata = None
+        else:
+            my_msg = None
+            vdata = validation
+
+        # create model
+        print( 'Running trials...' )
+        best_loss, best_model = 1e100, None
+        for t in range(args.ntrials):
+            model = scHPF(nfactors=args.nfactors,
+                        a=args.a, ap=args.ap, bp=args.bp,
+                        c=args.c, cp=args.cp, dp=args.dp,
+                        min_iter=args.min_iter, max_iter=args.max_iter,
+                        check_freq=args.check_freq, epsilon=args.epsilon,
+                        better_than_n_ago=args.better_than_n_ago,
+                        )
+            model.fit(train, validation_data=vdata, verbose=args.verbose,
+                        message_function = my_msg)
+
+            if args.benchmarking:
+                xhat = model.theta.e_x @ model.beta.e_x.T
+                resid = xhat[validation.row, validation.col] - validation.data
+                mae = np.mean(np.abs(resid))
+                mse = np.mean(resid**2)
+                llh = model.pois_llh(validation)
+
+                msg = 'Trial {0}: [MAE] {1:.5f}  [MSE] {2:.5f}  [llh]  {3:.5f}'
+                print(msg.format(t, mae, mse, llh))
+                loss = mae
+            else:
+                loss = model.loss[-1]
+
+            if loss < best_loss:
+                best_model = model
+                best_loss = loss
+                print('New best!')
