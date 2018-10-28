@@ -39,25 +39,10 @@ def _parser():
     # Require model hyperparameter
     train.add_argument('-k', '--nfactors', type=int, required=True,
             help='Number of factors.')
-    # Other model hyperparameters that are set automatically
-    train.add_argument('-a', default=0.3, type=float, 
-            help='Shape hyperparameter for cell factors (theta).')
-    train.add_argument('-ap', default=1.0, type=float, 
-            help='Shape hyperparameter for cell capacity (xi)')
-    train.add_argument('-bp', type=float,  default=None,
-            help='Cell capacity inverse scale hyperparam bp. Recommended to '
-            'leave as None, so it can be set empirically from the data.')
-    train.add_argument('-c', default=0.3, type=float, 
-            help='Shape hyperparameter for gene factors (beta).')
-    train.add_argument('-cp',  default=1.0, type=float, 
-            help='Shape hyperparameter for gene capacity (eta).')
-    train.add_argument('-dp', type=float, 
-            help='Gene capacity inverse scale hyperparam dp. Recommended to '
-            'leave as None, so it can be set empirically from the data.')
-
 
     # training parameters
-    train.add_argument('--verbose', action='store_true', default=False)
+    train.add_argument('--quiet', dest='verbose', action='store_false', 
+            default=True)
     train.add_argument('-t', '--ntrials',  type=int, default=1,
             help='Number of times to run scHPF, selecting the trial with '
             'best loss on the validation set, if given, or the best loss '
@@ -89,18 +74,20 @@ def _parser():
 def _model_stat_msg(theta, beta, validation=None, test=None):
     xhat = theta.e_x @ beta.e_x.T
 
+    msg = ''
     if validation is not None:
         vresid = xhat[validation.row, validation.col] - validation.data
         vmae = np.mean(np.abs(vresid))
         vmse = np.mean(vresid**2)
-        msg='\tvmae:{}  vmse:{}'.format(vmae, vmse,)
-        print(msg)
+        msg+='\tvmae:{}  vmse:{}'.format(vmae, vmse,)
 
     if test is not None:
-        vresid = xhat[test.row, test.col] - test.data
+        tresid = xhat[test.row, test.col] - test.data
         tmae = np.mean(np.abs(tresid))
-        bmse = np.mean(tresid**2)
-        msg='\ttmae:{}  tmse:{}'.format(tmae, tmse)
+        tmse = np.mean(tresid**2)
+        msg+='\ttmae:{}  tmse:{}'.format(tmae, tmse)
+
+    if len(msg):
         print(msg)
 
 
@@ -137,8 +124,6 @@ if __name__=='__main__':
         best_loss, best_model = 1e100, None
         for t in range(args.ntrials):
             model = scHPF(nfactors=args.nfactors,
-                        a=args.a, ap=args.ap, bp=args.bp,
-                        c=args.c, cp=args.cp, dp=args.dp,
                         min_iter=args.min_iter, max_iter=args.max_iter,
                         check_freq=args.check_freq, epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago,
