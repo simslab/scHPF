@@ -152,6 +152,7 @@ if __name__=='__main__':
                 best_loss = loss
                 print('New best!')
 
+        print('Best loss: {0:.6f}'.format(best_loss))
         outname = '{}/scHPF_K{}_epsilon{}_{}trials.joblib'.format(
                 args.outdir, args.nfactors, args.epsilon, args.ntrials)
-        joblib.dumps(best_model, outname)
+        joblib.dump(best_model, outname)
