@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
+from copy import deepcopy
+
 import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.misc import logsumexp
 from scipy.special import digamma, gammaln, psi
 from sklearn.base import BaseEstimator
+from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
@@ -281,7 +284,37 @@ class scHPF(BaseEstimator):
         """Get bp,xi and theta for new data while fixing gene scores"""
         (bp, _, xi, _, theta, _) = self._fit(X,
                 validation_data=validation_data, freeze_genes=True)
-        return bp, xi, theta
+        new_scHPF = deepcopy(self)
+        new_scHPF.bp = bp
+        new_scHPF.xi = xi
+        new_scHPF.theta = theta
+        return new_scHPF
+
+
+    def save(self, file_name):
+        """Save model to (joblib) file
+
+        Serialize scHPF model as a joblib file.  Joblib is simillar to pickle,
+        but preferable for objects with many numpy arrays
+
+        Parameters
+        ----------
+        file_name : str
+            Name of file to save model to
+        """
+        joblib.dumps(model, file_name)
+
+
+    @staticmethod
+    def load(file_name):
+        """Load a model from a joblib file
+
+        Parameters
+        ----------
+        file_name : str
+            Joblib file containing a saved scHPF model
+        """
+        return joblib.load(file_name)
 
 
     def _score(self, capacity, loading):

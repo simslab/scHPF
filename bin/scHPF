@@ -15,6 +15,8 @@ def _parser():
 
     ### Preprocess command
     prep = subparsers.add_parser('prep')
+    prep.add_argument('-o', '--outdir', required=True,
+            help='Directory in which to prepared files')
     # TODO
 
     ###### Train command
@@ -66,7 +68,16 @@ def _parser():
 
 
     ### Score command
-    # TODO
+    score = subparsers.add_parser('score')
+    score.add_argument('-m', '--model', required=True,
+            help='Saved scHPF model.  Should have extension `.joblib`')
+    score.add_argument('-o', '--outdir', required=True,
+            help='Directory in which to save score files')
+    score.add_argument('-g', '--genefile', default=None,
+            help='If given, create an additonal file with genes ranked by '
+            'score for each factor.  Expected to be a two-column, tab-'
+            'delimited file where the first column is the ENSEMBL id (but '
+            'could be anything) and the second column is the gene symbol.')
 
     return parser
 
@@ -96,10 +107,10 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
-    if args.cmd == 'train':
-        if not os.path.exists(args.outdir):
-            os.makedirs(args.outdir)
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
 
+    if args.cmd == 'train':
         # load data
         print( 'Loading data...' )
         train = load_coo(args.input)
@@ -156,3 +167,26 @@ if __name__=='__main__':
         outname = '{}/scHPF_K{}_epsilon{}_{}trials.joblib'.format(
                 args.outdir, args.nfactors, args.epsilon, args.ntrials)
         joblib.dump(best_model, outname)
+    elif args.cmd == 'score':
+        print('Loading model...')
+        model = joblib.load(args.model)
+
+        print('Calculating scores...')
+        cell_score = model.cell_score()
+        gene_score = model.gene_score()
+
+        print('Saving scores...')
+        np.savetxt(args.outdir + '/cell_score.txt', cell_score, delimiter='\t')
+        np.savetxt(args.outdir + '/gene_score.txt', gene_score, delimiter='\t')
+
+        if args.genefile is not None:
+            print('Ranking genes...')
+            genes = np.loadtxt(args.genefile, delimiter='\t', dtype=str)
+            ranks = np.argsort(gene_score, axis=0)[::-1]
+            ranked_genes = []
+            for i in range(gene_score.shape[1]):
+                ranked_genes.append(genes[ranks[:,i], 1])
+            ranked_genes = np.stack(ranked_genes).T
+            print('Saving ranked genes...')
+            np.savetxt(args.outdir + '/ranked_genes.txt', ranked_genes, 
+                    fmt="%s", delimiter='\t')

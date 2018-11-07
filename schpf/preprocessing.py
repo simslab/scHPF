@@ -3,6 +3,11 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 
+# try:
+    # import loompy
+# except ImportError:
+    # print('Warning: could not import loompy')
+
 # import pandas as pd
 
 
