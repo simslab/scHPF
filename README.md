@@ -48,7 +48,7 @@ scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-s
 
 - A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended), the loom file must have a row attribute 'Gene'.
 
-#### Running the command
+#### Running the prep command
 To preprocess genome-wide UMI counts for a typica run, use the command:
 ```
 scHPF prep --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 0.01 --whitelist GENE_WHITELIST
@@ -72,8 +72,9 @@ scHPF's train command accepts two formats:
 - Tab-delimited COO matrix coordinates, output by the previous version of the preprocessing command.  These files are essentially the same as .mtx files, except they do not have a header and are zero indexed.
 
 #### Running the train command
+TODO
 ```
-scHPF train -i 
+scHPF train 
 ```
 
 ### Extracting cell scores, gene scores, and ranked gene lists
