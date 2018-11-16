@@ -6,7 +6,7 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 
 ## Updates
 
-scHPF has a new, improved implementaiton in numba that includes both a command line interface and a scikit-learn-like API.  It is substailly faster and more memory-efficient than tnesorflow scHPF, espcially when many virtual CPUs are available in a high performance compute cluster or compute service like AWS.  Numba scHPF not currently back-compatible with trained models from tensorflow scHPF, but I will be fixing this very soon.
+scHPF has a new, improved implementaiton in numba that includes both a command line interface and a scikit-learn-like API.  It is substailly faster and more memory-efficient than Tensorflow scHPF, espcially when many virtual CPUs are available in a high performance compute cluster or compute service like AWS.  Numba scHPF not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon.
 
 # Documentation
 
@@ -18,7 +18,7 @@ scHPF requires the Python >= 3.6 and the packages:
 - pandas
 - (optional) loompy
 
-The easiest way to setup a python environment scHPF is with [anaconda](https://www.anaconda.com/download/#macos):
+The easiest way to setup a python environment for scHPF is with [anaconda](https://www.anaconda.com/download/#macos):
 ```
 conda create -n schpf_p37 python=3.7 scikit-learn numba pandas
 
@@ -44,11 +44,9 @@ python setup.py install
 #### Input file formats
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The are currently two options for input file formats:
 
-1. A whitespace-delimited matrix formatted like:
-> <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
-The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
+- A whitespace-delimited matrix formatted like: <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre> The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
 
-2. A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended to select protein coding genes only), the loom file must have a row attribute 'Gene'.
+- A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended), the loom file must have a row attribute 'Gene'.
 
 #### Running the command
 To preprocess genome-wide UMI counts for a typica run, use the command:
@@ -56,11 +54,11 @@ To preprocess genome-wide UMI counts for a typica run, use the command:
 scHPF prep --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 0.01 --whitelist GENE_WHITELIST
 ```
 
-Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, tab-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are:
-1. on the whitelist (eg protein coding) and 
-2. that we observe transcripts of in at least 0.1% of cells. 
+Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, tab-delimited text file of ENSEMBL\_IDs and GENE_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are:
+- on the whitelist (eg protein coding) and 
+- that we observe transcripts of in at least 0.1% of cells. 
 
-For whitespace-delimited UMI-count files, filtering is performed using the ENSEMBL_ID by default, but can be done with gene symbols using the --filter-by-gene-name flag.  Filtering on loom files uses the 'Gene' row attibute in the loom file and GENE_\SYMBOL in the whitlist or blacklist file. After running this command, OUTPUT_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. 
+For whitespace-delimited UMI-count files, filtering is performed using the ENSEMBL_ID by default, but can be done with gene symbols using the --filter-by-gene-name flag.  Filtering on loom files uses the 'Gene' row attibute in the loom file and GENE_SYMBOL in the whitlist or blacklist file. After running this command, OUTPUT_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. 
 
 More options and details for preprocessing can be viewed with 
 ```
@@ -68,7 +66,15 @@ scHPF prep -h
 ```
 
 ### Training
-TODO
+#### Input file formats
+scHPF's train command accepts two formats:
+- Matrix Market (.mtx) files, where rows are cells, columns are genes, and values are nonzero molecular counts.  Matrix market files are output by the current scHPF prep command.
+- Tab-delimited COO matrix coordinates, output by the previous version of the preprocessing command.  These files are essentially the same as .mtx files, except they do not have a header and are zero indexed.
+
+#### Running the train command
+```
+scHPF train -i 
+```
 
 ### Extracting cell scores, gene scores, and ranked gene lists
 TODO
