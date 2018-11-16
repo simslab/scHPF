@@ -18,7 +18,7 @@ scHPF requires the Python >= 3.6 and the packages:
 - pandas
 - (optional) loompy
 
-The easiest way to setup an environment is with [anaconda](https://www.anaconda.com/download/#macos)
+The easiest way to setup a python environment scHPF is with [anaconda](https://www.anaconda.com/download/#macos):
 ```
 conda create -n schpf_p37 python=3.7 scikit-learn numba pandas
 
@@ -31,17 +31,38 @@ conda activate schpf_p37
 pip install -U loompy
 ```
 
-Once you have completed requirements, clone this git reposity and install.
+Once you have set up the environment, clone this git reposity and install.
 ```
 git clone URL
 cd scHPF
 python setup.py install
 ```
 
-Once I merge into master, you should be able to install directly with pip:
+## scHPF CLI workflow
+### Preprocessing
+scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The are currently two options for input file formats:
+
+1. A whitespace-delimited matrix should be formatted like:
+> <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
+The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
+
+2. A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended to select protein coding genes only), the loom file must have a row attribute 'Gene'.
+
+To preprocess genome-wide UMI counts for a typica run, use the command:
 ```
-pip install git+https://www.github.com/simslab/scHPF.git#egg=scHPF
+scHPF prep --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 0.01 --whitelist GENE_WHITELIST
 ```
+
+Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, whitespace-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 0.1% of cells.  After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. More options and details for preprocessing can be viewed with 
+```
+scHPF prep -h
+```
+
+### Training
+TODO
+
+### Extracting cell scores, gene scores, and ranked gene lists
+TODO
 
 ##  Citation
 
