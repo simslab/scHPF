@@ -42,7 +42,7 @@ python setup.py install
 ### Preprocessing
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The are currently two options for input file formats:
 
-1. A whitespace-delimited matrix should be formatted like:
+1. A whitespace-delimited matrix formatted like:
 > <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre>
 The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
 
@@ -53,7 +53,7 @@ To preprocess genome-wide UMI counts for a typica run, use the command:
 scHPF prep --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 0.01 --whitelist GENE_WHITELIST
 ```
 
-Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, whitespace-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 0.1% of cells.  After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. More options and details for preprocessing can be viewed with 
+Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, tab-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 0.1% of cells. For whitespace-delimited UMI-count files, filtering is performed using the ENSEMBL_\ID by default, but can be done with gene symbols using the --filter-by-gene-name flag.  Filtering on loom files uses the 'Gene' row attibute in the loom file and GENE_\SYMBOL in the whitlist or blacklist file. After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. More options and details for preprocessing can be viewed with 
 ```
 scHPF prep -h
 ```
