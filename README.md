@@ -4,9 +4,44 @@ Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](https://
 
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
 
-# Documentation
-Info for numba version forthcoming
+## Updates
 
+scHPF has a new, improved implementaiton in numba that includes both a command line interface and a scikit-learn-like API.  It is substailly faster and more memory-efficient than tnesorflow scHPF, espcially when many virtual CPUs are available in a high performance compute cluster or compute service like AWS.  Numba scHPF not currently back-compatible with trained models from tensorflow scHPF, but I will be fixing this very soon.
+
+# Documentation
+
+## Installation
+
+scHPF requires the Python >= 3.6 and the packages:
+- numba
+- scikit-learn
+- pandas
+- (optional) loompy
+
+The easiest way to setup an environment is with [anaconda](https://www.anaconda.com/download/#macos)
+```
+conda create -n schpf_p37 python=3.7 scikit-learn numba pandas
+
+# older anaconda
+source activate schpf_p37
+# newer anaconda
+conda activate schpf_p37
+
+# Optional, for using loom files as input to preprocessing
+pip install -U loompy
+```
+
+Once you have completed requirements, clone this git reposity and install.
+```
+git clone URL
+cd scHPF
+python setup.py install
+```
+
+Once I merge into master, you should be able to install directly with pip:
+```
+pip install git+https://www.github.com/simslab/scHPF.git#egg=scHPF
+```
 
 ##  Citation
 
