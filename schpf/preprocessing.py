@@ -66,7 +66,8 @@ def load_txt(filename,  ngene_cols=2):
         ngenes x ngene_cols array of gene names/attributes
     """
     assert( ngene_cols > 0 )
-    df = pd.read_csv(filename, header=None, memory_map=True, delim_whitespace=True)
+    df = pd.read_csv(filename, header=None, memory_map=True,
+            delim_whitespace=True)
 
     gene_cols = list(range(ngene_cols))
     genes = df[gene_cols]
