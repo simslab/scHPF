@@ -4,10 +4,13 @@ import os
 import argparse
 
 import numpy as np
+import pandas as pd
+from scipy.io import mmread, mmwrite
+from scipy.sparse import coo_matrix
 from sklearn.externals import joblib
 
 from schpf import scHPF
-from schpf.preprocessing import load_coo
+import schpf.preprocessing as pp
 
 def _parser():
     parser = argparse.ArgumentParser()
@@ -15,28 +18,54 @@ def _parser():
 
     ### Preprocess command
     prep = subparsers.add_parser('prep')
+    prep.add_argument('-i', '--input', required=True,
+            help='Input data. Currently accepts whitespace-delimited gene '
+            'by cell count matrices with 2 leading columns of gene '
+            'attributes, assumed to be ENSEMBL_ID and GENE_SYMBOL '
+            'respectively, or loom files with row attribute `Gene`, which '
+            'is a gene symbol.'
+            )
     prep.add_argument('-o', '--outdir', required=True,
             help='Directory in which to prepared files')
-    # TODO
+    prep.add_argument('-m', '--min-cells', type=float, default=0.01, 
+            help='Minimum number of cells in which we must observe at '
+            'least one transcript of a gene for the gene to pass '
+            'filtering. If 0 < `min_cells` < 1, sets threshold to be '
+            '`min_cells` * ncells, rounded to the nearest integer.')
+    prep.add_argument('-w', '--whitelist', default='',
+            help='File where first column is list of ENSEMBL gene ids to '
+            'accept, and second column is gene symbol. Only performed if '
+            'file given. Superseded by blacklist')
+    prep.add_argument('-b', '--blacklist', default='',
+            help='File where first column is list of ENSEMBL gene ids to '
+            'exclude, and second column is gene symbol. Only performed if '
+            'file given. Supersedes whitelist.')
+    prep.add_argument('--filter-by-gene-name', default=False, 
+            action='store_true', help='Use gene symbol rather than ENSEMBL '
+            'id to filter (with whitelist or blacklist).  Useful for '
+            'datasets where only gene symbols are given. Applies to both '
+            'whitelist and blacklist. Used by default when input is a loom '
+            'file.')
+    prep.add_argument('--no-split-on-dot', default=False, action='store_true',
+            help='Don\'t split gene symbol or name on period before '
+            'filtering. We do this by default for ENSEMBL ids.')
 
     ###### Train command
     train = subparsers.add_parser('train')
     # data and saving
     train.add_argument('-i', '--input', required=True,
-            help='Training data.  Expects a tab-separated file with zero-'
-            'indexed integer cell and gene ids, and integer nonzero UMI '
-            'counts formatted like: CELL_IX   GENE_IX   UMI_COUNT')
+            help='Training data. Expects either an mtx file (rows are cells, '
+            ' columns are genes, values are UMI counts) or a tab-separated '
+            'file formatted like:' '`CELL_ID    GENE_ID    UMI_COUNT`. If '
+            'a tab-separated file give, assumed to be 0 indexed and have no '
+            'duplicate entries.'
+            )
     train.add_argument('-o', '--outdir', required=True,
             help='Directory in which to save scHPF model. Will be created'
             'if does not exist.')
-    train.add_argument('-v', '--validation',
-            help='Validation data.  Expects a tab-separated file with zero-'
-            'indexed integer cell and gene ids, and integer, non-zero UMI '
-            'counts formatted like:CELL_IX   GENE_IX   UMI_COUNT')
-    train.add_argument('--test',
-            help='Test data.  Expects a tab-separated file with zero-'
-            'indexed integer cell and gene ids, and integer, non-zero UMI '
-            'counts formatted like:CELL_IX   GENE_IX   UMI_COUNT')
+    train.add_argument('-v', '--validation', 
+            help='Validation data. Must have same format (either mtx or tsv) '
+            'as args.input' )
 
     # Require model hyperparameter
     train.add_argument('-k', '--nfactors', type=int, required=True,
@@ -64,8 +93,6 @@ def _parser():
             'if loss is worse than `better_than_n_ago`*`check_freq` training steps '
             'ago and getting worse. Normally not necessary to change.')
 
-    train.add_argument('--benchmarking', action='store_true')
-
 
     ### Score command
     score = subparsers.add_parser('score')
@@ -82,27 +109,6 @@ def _parser():
     return parser
 
 
-def _model_stat_msg(theta, beta, validation=None, test=None):
-    xhat = theta.e_x @ beta.e_x.T
-
-    msg = ''
-    if validation is not None:
-        vresid = xhat[validation.row, validation.col] - validation.data
-        vmae = np.mean(np.abs(vresid))
-        vmse = np.mean(vresid**2)
-        msg+='\tvmae:{0:.5f}  vmse:{1:.5f}'.format(vmae, vmse,)
-
-    if test is not None:
-        tresid = xhat[test.row, test.col] - test.data
-        tmae = np.mean(np.abs(tresid))
-        tmse = np.mean(tresid**2)
-        msg+='\ttmae:{0:.5f}  tmse:{1:.5f}'.format(tmae, tmse)
-
-    if len(msg):
-        print(msg)
-
-
-
 if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
@@ -110,28 +116,59 @@ if __name__=='__main__':
     if not os.path.exists(args.outdir):
         os.makedirs(args.outdir)
 
-    if args.cmd == 'train':
+    if args.cmd == 'prep':
+        print('Loading data...')
+        if args.input.endswith('.loom'):
+            umis, genes = pp.load_loom(args.input)
+            candidate_names = genes['Gene']
+            genelist_col = 1
+        else:
+            umis, genes = pp.load_txt(args.input)
+            genelist_col = 1 if args.filter_by_gene_name else 0
+            candidate_names = genes[genelist_col]
+
+        print('Generating masks for filtering...')
+        mask = pp.min_cells_expressing_mask(umis, args.min_cells)
+        if args.whitelist is not None and len(args.whitelist):
+            whitelist = pd.read_csv(args.whitelist, delim_whitespace=True,
+                    header=None)
+            mask &= pp.genelist_mask(candidate_names, whitelist[genelist_col],
+                        split_on_dot = ~args.no_split_on_dot)
+        if args.blacklist is not None and len(args.blacklist):
+            blacklist = pd.read_csv(args.blacklist, delim_whitespace=True,
+                    header=None)
+            mask &= pp.genelist(candidate_names, blacklist[genelist_col],
+                        whitelist=False, split_on_dot = ~args.no_split_on_dot)
+
+        print('Filtering data...')
+        # TODO : don't convert back to dense
+        genes = genes.loc[mask]
+        umis_dense = umis.toarray()[:, mask]
+        nz = np.nonzero(umis_dense)
+        filtered = coo_matrix((umis_dense[nz], nz))
+
+        print('Writing filtered data to file...')
+        mmwrite('{}/train.mtx'.format(args.outdir), filtered, field='integer')
+        genes.to_csv('{}/genes.txt'.format(args.outdir), sep='\t', header=None,
+                index=None)
+
+    elif args.cmd == 'train':
         # load data
         print( 'Loading data...' )
-        train = load_coo(args.input)
+        load_fnc = mmread if args.input.endswith('.mtx') else pp.load_coo
+        train = load_fnc(args.input)
+
+        ngenes = train.shape[1]
+        if ngenes >= 20000:
+            msg = 'Warning: you are running scHPF with {} genes,'.format(ngenes)
+            msg += ' which is more than the ~20k protein coding genes in the'
+            msg += ' human genome. We suggest running scHPF on protein-coding' 
+            msg += ' genes only.'
 
         if args.validation is not None:
-            validation = load_coo(args.validation)
+            vdata = load_fnc(args.validation)
         else:
-            validation = None
-
-        if args.test is not None:
-            test = load_coo(args.test)
-        else:
-            test = None
-
-        if args.benchmarking:
-            my_msg = lambda theta, beta, _ : _model_stat_msg(theta,beta,
-                validation,test)
             vdata = None
-        else:
-            my_msg = None
-            vdata = validation
 
         # create model
         print( 'Running trials...' )
@@ -142,22 +179,9 @@ if __name__=='__main__':
                         check_freq=args.check_freq, epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago,
                         )
-            model.fit(train, validation_data=vdata, verbose=args.verbose,
-                        message_function = my_msg)
+            model.fit(train, validation_data=vdata, verbose=args.verbose)
 
-            if args.benchmarking:
-                xhat = model.theta.e_x @ model.beta.e_x.T
-                resid = xhat[validation.row, validation.col] - validation.data
-                mae = np.mean(np.abs(resid))
-                mse = np.mean(resid**2)
-                llh = model.pois_llh(validation)
-
-                msg = 'Trial {0}: [MAE] {1:.5f}  [MSE] {2:.5f}  [llh]  {3:.5f}'
-                print(msg.format(t, mae, mse, llh))
-                loss = mae
-            else:
-                loss = model.loss[-1]
-
+            loss = model.loss[-1]
             if loss < best_loss:
                 best_model = model
                 best_loss = loss

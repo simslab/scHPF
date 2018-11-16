@@ -7,7 +7,13 @@ __version__ = '0.2.0'
 requires = ['scikit-learn',
             'numba',
             'scipy >= 1.1',
-            'numpy']
+            'numpy',
+            'pandas' # TODO get rid of this because only used in preprocessing
+            ]
+
+extras_require = {
+        'loompy_preprocessing' : ['loompy']
+        }
 
 setup(
     name='scHPF',
@@ -16,7 +22,7 @@ setup(
     scripts=['bin/scHPF'],
     python_requires='>=3.6',
     install_requires=requires,
-    extras_require={},
+    extras_require=extras_require,
     author = 'Hanna Mendes Levitin',
     author_email = 'hml2134@columbia.edu',
     description='Single-cell Hierarchical Poisson Factorization',
