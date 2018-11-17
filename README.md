@@ -2,11 +2,14 @@
 
 Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](https://www.biorxiv.org/content/early/2018/07/11/367003), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
 
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
-
 ## Updates
 
 scHPF has a new, improved implementaiton in numba that includes both a command line interface and a scikit-learn-like API.  It is substailly faster and more memory-efficient than Tensorflow scHPF, espcially when many virtual CPUs are available in a high performance compute cluster or compute service like AWS.  Numba scHPF not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon.
+
+## About
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
+
+
 
 # Documentation
 
@@ -38,18 +41,18 @@ cd scHPF
 python setup.py install
 ```
 
-## scHPF CLI workflow
+## scHPF Command Line Interface workflow
 ### Preprocessing
 
 #### Input file formats
 scHPF's preprocessing.py command intakes a molecular count matrix for an scRNA-seq experiment with unique molecular identifiers (UMIs).  The are currently two options for input file formats:
 
-- A whitespace-delimited matrix formatted like: <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre> The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
+1. A whitespace-delimited matrix formatted like: <pre>ENSEMBL_ID  GENE_SYMBOL  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre> The matrix should not have a header, but may be compressed with gzip or bzip2. We note that scHPF is specifically designed for scRNA-seq data with UMIs, and only takes integer molecular counts.
 
-- A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended), the loom file must have a row attribute 'Gene'.
+2. A loom file (see [loompy.org](http://loompy.org/)). For filtering against a whitelist or blacklist of genes (recommended), the loom file must have a row attribute 'Gene'.
 
 #### Running the prep command
-To preprocess genome-wide UMI counts for a typica run, use the command:
+To preprocess genome-wide UMI counts for a typical run, use the command:
 ```
 scHPF prep --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 0.01 --whitelist GENE_WHITELIST
 ```
@@ -68,14 +71,16 @@ scHPF prep -h
 ### Training
 #### Input file formats
 scHPF's train command accepts two formats:
-- Matrix Market (.mtx) files, where rows are cells, columns are genes, and values are nonzero molecular counts.  Matrix market files are output by the current scHPF prep command.
-- Tab-delimited COO matrix coordinates, output by the previous version of the preprocessing command.  These files are essentially the same as .mtx files, except they do not have a header and are zero indexed.
+1. Matrix Market (.mtx) files, where rows are cells, columns are genes, and values are nonzero molecular counts.  Matrix market files are output by the current scHPF prep command.
+2. Tab-delimited COO matrix coordinates, output by the previous version of the preprocessing command.  These files are essentially the same as .mtx files, except they do not have a header and are zero indexed.
 
 #### Running the train command
-TODO
+To train an scHPF using data output from the prep command:
 ```
-scHPF train 
+scHPF train --input TRAIN_FILE -o OUTPUT_DIR -k NFACTORS -t 5
 ```
+This command performs approximate Bayesian inference on scHPF with, in this instance, seven factors and five different random initializations (in sequence). scHPF will automatically select the trial with the highest log likelikhood, and save the model in the OUTPUT_DIR in a seralized [joblib](https://scikit-learn.org/stable/modules/model_persistence.html) file.  
+
 
 ### Extracting cell scores, gene scores, and ranked gene lists
 TODO
