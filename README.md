@@ -50,13 +50,15 @@ scHPF prep currently accepts two input file formats:
 #### Running the prep command
 To preprocess genome-wide UMI counts for a typical run, use the command:
 ```
-scHPF prep -i UMICOUNT_MATRIX -p PREFIX -o OUTPUT_DIR -m 0.01 -w GENE_WHITELIST
+scHPF prep -i UMICOUNT_MATRIX -o OUTPUT_DIR -m 0.01 -w GENE_WHITELIST
 ```
 Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, tab-delimited text file of ENSEMBL\_IDs and GENE_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are:
 - on the whitelist (eg protein coding) and 
 - that we observe transcripts of in at least 0.1% of cells. 
 
-For whitespace-delimited UMI-count files, filtering is performed using the ENSEMBL_ID by default, but can be done with gene symbols using the --filter-by-gene-name flag.  For loom files, 'Gene' row attibute is used from the count matrix, and filterd against GENE_SYMBOL in the whitlist or blacklist file. After running this command, OUTPUT_DIR should contain a matrix 'PREFIX.train.mtx' and a list of genes 'PREFIX.genes.txt'. Note that the prefix argument is optional.
+For whitespace-delimited UMI-count files, filtering is performed using the ENSEMBL_ID (0th column in both UMICOUNT_MATRIX and GENE_WHITELIST) by default, but can be done with gene symbols (1st zero-indexed column) using the --filter-by-gene-name flag.  For loom files, 'Gene' row attibute is used from the input matrix, and filterd against GENE_SYMBOL in the whitlist. 
+
+After running this command, OUTPUT_DIR should contain a matrix `train.mtx` and a list of genes `genes.txt`. An optional prefix argument can be added, which is prepended to to the output file names.
 
 More options and details for preprocessing can be viewed with 
 ```
