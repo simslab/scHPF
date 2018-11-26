@@ -91,7 +91,7 @@ scHPF score -m MODEL_JOBLIB -o OUTDIR -p PREFIX
 
 To also generate a tab-delimited file of gene names, ranked by gene-score for each factor:
 ```
-schpf score -m MODEL_JOBLIB -o OUTDIR -p PREFIX -g GENE_FILE
+scHPF score -m MODEL_JOBLIB -o OUTDIR -p PREFIX -g GENE_FILE
 ```
 GENE_FILE is intended to be the `gene.txt` file output by the scHPF prep command (see above), but can in theory be any tab-delimited file where the number of rows is equal to the number of genes in the scHPF model. The score command automatically uses the 1st (zero-indexed) column of GENE_FILE (or the only column if there is only one); however, the column used can be specified with --name-col.
 
