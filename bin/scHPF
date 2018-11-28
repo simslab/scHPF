@@ -36,11 +36,11 @@ def _parser():
             '`min_cells` * ncells, rounded to the nearest integer.')
     prep.add_argument('-w', '--whitelist', default='',
             help='File where first column is list of ENSEMBL gene ids to '
-            'accept, and second column is gene symbol. Only performed if '
+            'accept, and second column is gene name. Only performed if '
             'file given. Superseded by blacklist')
     prep.add_argument('-b', '--blacklist', default='',
             help='File where first column is list of ENSEMBL gene ids to '
-            'exclude, and second column is gene symbol. Only performed if '
+            'exclude, and second column is gene name. Only performed if '
             'file given. Supersedes whitelist.')
     prep.add_argument('--filter-by-gene-name', default=False, 
             action='store_true', help='Use gene symbol rather than ENSEMBL '
@@ -78,7 +78,7 @@ def _parser():
 
     # training parameters
     train.add_argument('--quiet', dest='verbose', action='store_false', 
-            default=True)
+            default=True, help="Don't print intermediate llh.")
     train.add_argument('-t', '--ntrials',  type=int, default=1,
             help='Number of times to run scHPF, selecting the trial with '
             'best loss on the validation set, if given, or the best loss '
@@ -108,15 +108,15 @@ def _parser():
     score.add_argument('-p', '--prefix', default='',
             help='Prefix for output files')
     score.add_argument('-g', '--genefile', default=None,
-            help='If given, create an additional file with genes ranked by '
-            'score for each factor.  Expects a  tab-delimited file without '
-            'headers. The zero-indexed `name_col`\'th column will be used '
-            'as a gene label in output')
+            help='If given, create an additional file with gene names ranked '
+            'by score for each factor.  Expects a  tab-delimited file without '
+            'headers, (eg the gene.txt file output by scHPF prep). Uses the '
+            'zero-indexed `--name_col`\'th column gene name.')
     score.add_argument('--name-col', type=int, default=1,
             help='The zero-indexed column of `genefile` to use as a gene name '
-            'when ranking genes.  Ignored if `genefile` is not given. '
-            'Automatically set to the last column if greater than the '
-            'number of columns in the file minus 1.  [Default 1]'
+            'when (optionally) ranking genes. If `--name_col` is greater than '
+            'the index of `genefile`\'s last column, it is automatically reset '
+            'to the last column\'s index. [Default 1]'
         )
 
     return parser
@@ -162,7 +162,7 @@ if __name__=='__main__':
         nz = np.nonzero(umis_dense)
         filtered = coo_matrix((umis_dense[nz], nz))
 
-        prefix = args.prefix + '.' if len(args.prefix) > 0 else ''
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         print('Writing filtered data to file......')
         mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
@@ -208,7 +208,7 @@ if __name__=='__main__':
                 print('New best!')
 
         print('Best loss: {0:.6f}'.format(best_loss))
-        prefix = args.prefix + '.' if len(args.prefix) > 0 else ''
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
                 outprefix, args.nfactors, args.epsilon, args.ntrials)
@@ -222,7 +222,7 @@ if __name__=='__main__':
         gene_score = model.gene_score()
 
         print('Saving scores......')
-        prefix = args.prefix + '.' if len(args.prefix) > 0 else ''
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
