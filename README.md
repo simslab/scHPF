@@ -11,7 +11,7 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 
 # Documentation
 ## Installation
-scHPF requires the Python >= 3.6 and the packages:
+scHPF requires Python >= 3.6 and the packages:
 - numba
 - scikit-learn
 - pandas
