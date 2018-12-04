@@ -26,6 +26,6 @@ setup(
     author = 'Hanna Mendes Levitin',
     author_email = 'hml2134@columbia.edu',
     description='Single-cell Hierarchical Poisson Factorization',
-    license='GPLv3',
+    license="BSD",
     url='https://www.github.com/simslab/scHPF',
 )
