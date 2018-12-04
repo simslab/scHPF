@@ -20,26 +20,26 @@ cgammaln = gammaln_ftype(gammaln_fnaddr)
 @numba.njit(parallel=True, nogil=True, fastmath=True)
 def compute_pois_llh(X_data, X_row, X_col,
                      theta_vi_shape, theta_vi_rate,
-                     beta_vi_shape, beta_vi_rate,
-                    ):
+                     beta_vi_shape, beta_vi_rate):
     ncells, ngenes = (theta_vi_shape.shape[0], beta_vi_shape.shape[0])
     nfactors, nnz = (theta_vi_shape.shape[1], X_data.shape[0])
+    dtype = theta_vi_shape.dtype
 
     # precompute expectations
-    theta_e_x = np.zeros_like(theta_vi_shape, dtype=np.float64)
+    theta_e_x = np.zeros_like(theta_vi_shape, dtype=dtype)
     for i in numba.prange(ncells):
         for k in range(nfactors):
             theta_e_x[i,k] = theta_vi_shape[i,k] / theta_vi_rate[i,k]
 
-    beta_e_x = np.zeros_like(beta_vi_shape, dtype=np.float64)
+    beta_e_x = np.zeros_like(beta_vi_shape, dtype=dtype)
     for i in numba.prange(ngenes):
         for k in range(nfactors):
             beta_e_x[i,k] = beta_vi_shape[i,k] / beta_vi_rate[i,k]
 
     # compute llh
-    llh = np.zeros(X_data.shape, dtype=np.float64)
+    llh = np.zeros(X_data.shape, dtype=dtype)
     for i in numba.prange(nnz):
-        e_rate = np.float64(0.0)
+        e_rate = np.zeros(1, dtype=dtype)[0]
         for k in range(nfactors):
             e_rate += theta_e_x[X_row[i],k] * beta_e_x[X_col[i], k]
         llh[i] = X_data[i] * np.log(e_rate) - e_rate \
@@ -72,31 +72,32 @@ def compute_Xphi_data(X_data, X_row, X_col,
     # convenience
     ncells, ngenes = (theta_vi_shape.shape[0], beta_vi_shape.shape[0])
     nfactors, nnz = (theta_vi_shape.shape[1], X_data.shape[0])
+    dtype = theta_vi_shape.dtype
 
     # precompute theta.e_logx
-    theta_e_logx = np.zeros_like(theta_vi_shape, dtype=np.float64)
+    theta_e_logx = np.zeros_like(theta_vi_shape, dtype=dtype)
     for i in numba.prange(ncells):
         for k in range(nfactors):
             theta_e_logx[i,k] = psi(theta_vi_shape[i,k]) \
                                 - np.log(theta_vi_rate[i,k])
 
     # precompute beta.e_logx
-    beta_e_logx = np.zeros_like(beta_vi_shape, dtype=np.float64)
+    beta_e_logx = np.zeros_like(beta_vi_shape, dtype=dtype)
     for i in numba.prange(ngenes):
         for k in range(nfactors):
             beta_e_logx[i,k] = psi(beta_vi_shape[i,k]) \
                                - np.log(beta_vi_rate[i,k])
 
     # compute Xphi
-    Xphi = np.zeros((X_row.shape[0], theta_e_logx.shape[1]), dtype=np.float64)
+    Xphi = np.zeros((X_row.shape[0], theta_e_logx.shape[1]), dtype=dtype)
     for i in numba.prange(nnz):
-        logrho = np.zeros((Xphi.shape[1]), dtype=np.float64)
+        logrho = np.zeros((Xphi.shape[1]), dtype=dtype)
         for k in range(nfactors):
             logrho[k] = theta_e_logx[X_row[i],k] + beta_e_logx[X_col[i], k]
 
         #logsumexp to normalize logrho
         largest_in = np.max(logrho)
-        lse_sum = np.float64(0.0)
+        lse_sum = np.zeros(1, dtype=dtype)[0]
         for k in range(nfactors):
             lse_sum += np.exp(logrho[k] - largest_in)
         lse = np.log(lse_sum) + largest_in
@@ -127,8 +128,9 @@ def compute_loading_shape_update(Xphi_data, X_keep, nkeep, shape_prior):
 
     """
     nnz, nfactors = Xphi_data.shape
+    dtype = Xphi_data.dtype
 
-    result = shape_prior * np.ones((nkeep, nfactors), dtype=np.float64)
+    result = shape_prior * np.ones((nkeep, nfactors), dtype=dtype)
     for i in range(nnz):
         ikeep = X_keep[i]
         for k in range(nfactors):
@@ -138,17 +140,18 @@ def compute_loading_shape_update(Xphi_data, X_keep, nkeep, shape_prior):
 
 @numba.njit(fastmath=True)
 def compute_loading_rate_update(prior_vi_shape, prior_vi_rate,
-        other_loading_vi_shape, other_loading_vi_rate):
+        other_loading_vi_shape, other_loading_vi_rate,):
     # shorter names
     pvs, pvr = (prior_vi_shape, prior_vi_rate)
     olvs, olvr = (other_loading_vi_shape, other_loading_vi_rate)
+    dtype = prior_vi_shape.dtype
 
-    other_loading_e_x_sum = np.zeros((olvs.shape[1]), dtype=np.float64)
+    other_loading_e_x_sum = np.zeros((olvs.shape[1]), dtype=dtype)
     for i in range(olvs.shape[0]):
         for k in range(olvs.shape[1]):
             other_loading_e_x_sum[k] += olvs[i,k] / olvr[i,k]
 
-    result = np.zeros((pvs.shape[0], olvs.shape[1]), dtype=np.float64)
+    result = np.zeros((pvs.shape[0], olvs.shape[1]), dtype=dtype)
     for i in range(pvs.shape[0]):
         prior_e_x = pvs[i] / pvr[i]
         for k in range(olvs.shape[1]):
@@ -158,14 +161,16 @@ def compute_loading_rate_update(prior_vi_shape, prior_vi_rate,
 
 @numba.njit(fastmath=True)
 def compute_capacity_rate_update(loading_vi_shape, loading_vi_rate, prior_rate):
+    dtype = loading_vi_shape.dtype
     result = prior_rate * np.ones((loading_vi_shape.shape[0],),
-            dtype=np.float64)
+            dtype=dtype)
     for k in range(loading_vi_shape.shape[1]):
         for i in range(loading_vi_shape.shape[0]):
             result[i] += loading_vi_shape[i,k] / loading_vi_rate[i,k]
     return result
 
 
+#### slow versions of functions
 def compute_Xphi_data_slow(X, theta, beta):
     """ Slow version of Xphi computation using numpy/scipy
 
@@ -190,7 +195,7 @@ def compute_Xphi_data_slow(X, theta, beta):
 
 
 def compute_loading_shape_update_slow(Xphi_data, X_keep, X_reduce, nkeep,
-        nreduce, shape_prior):
+        nreduce, shape_prior, dtype=np.float64):
     """Compute gamma shape updates for theta or beta using numpy/scipy
 
     Parameters
@@ -218,7 +223,7 @@ def compute_loading_shape_update_slow(Xphi_data, X_keep, X_reduce, nkeep,
 
     """
     nfactors = Xphi_data.shape[1]
-    result = np.zeros((nkeep, nfactors), dtype=np.float64)
+    result = np.zeros((nkeep, nfactors), dtype=dtype)
     for k in range(nfactors):
         result[:,k] = coo_matrix(
                          (Xphi_data[:, k], (X_keep, X_reduce)),(nkeep, nreduce)

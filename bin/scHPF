@@ -99,6 +99,9 @@ def _parser():
             'ago and getting worse. Normally not necessary to change.')
     train.add_argument('--quiet', dest='verbose', action='store_false', 
             default=True, help="Don't print intermediate llh.")
+    train.add_argument('--float32', action='store_true',
+            help="Use 32-bit floats instead of default 64-bit floats in "
+            "variational distrubtions")
 
 
     ### Score command
@@ -197,11 +200,13 @@ if __name__=='__main__':
         # create model
         print( 'Running trials......' )
         best_loss, best_model = 1e100, None
+        dtype = np.float32 if args.float32 else np.float64
         for t in range(args.ntrials):
             model = scHPF(nfactors=args.nfactors,
                         min_iter=args.min_iter, max_iter=args.max_iter,
                         check_freq=args.check_freq, epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago,
+                        dtype=dtype
                         )
             model.fit(train, validation_data=vdata, verbose=args.verbose)
 

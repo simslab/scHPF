@@ -27,7 +27,7 @@ class HPF_Gamma(object):
     """
 
     @staticmethod
-    def random_gamma_factory(dims, shape_prior, rate_prior):
+    def random_gamma_factory(dims, shape_prior, rate_prior, dtype=np.float64):
         """Factory method to randomly initialize variational distributions
 
         Parameters
@@ -44,20 +44,22 @@ class HPF_Gamma(object):
             A randomly initialized HPF_Gamma instance
         """
         vi_shape = np.random.uniform(0.5 * shape_prior, 1.5 * shape_prior,
-                                     dims).astype('float64')
+                                     dims).astype(dtype)
         vi_rate  = np.random.uniform(0.5 * rate_prior, 1.5 * rate_prior,
-                                     dims).astype('float64')
+                                     dims).astype(dtype)
         return HPF_Gamma(vi_shape,vi_rate)
 
 
     def __init__(self, vi_shape, vi_rate):
         """Initializes HPF_Gamma with variational shape and rates"""
         assert(vi_shape.shape == vi_rate.shape)
+        assert(vi_shape.dtype == vi_rate.dtype)
         assert(np.all(vi_shape > 0))
         assert(np.all(vi_rate > 0))
         self.vi_shape = vi_shape
         self.vi_rate = vi_rate
         self.dims = vi_shape.shape
+        self.dtype = vi_shape.dtype
 
 
     @property
@@ -159,6 +161,7 @@ class scHPF(BaseEstimator):
             check_freq=10,
             epsilon=0.001,
             better_than_n_ago=5,
+            dtype=np.float64,
             xi=None,
             theta=None,
             eta=None,
@@ -178,6 +181,7 @@ class scHPF(BaseEstimator):
         self.check_freq = check_freq
         self.epsilon = epsilon
         self.better_than_n_ago = better_than_n_ago
+        self.dtype = dtype
 
         self.xi = None
         self.eta = None
@@ -485,9 +489,11 @@ class scHPF(BaseEstimator):
                     print('Clipping dp: was {} now {}'.format(old_val, dp))
 
         if reinit or (xi is None):
-            xi = HPF_Gamma.random_gamma_factory((ncells,), ap, bp)
+            xi = HPF_Gamma.random_gamma_factory((ncells,), ap, bp,
+                    dtype=self.dtype)
         if reinit or (theta is None):
-            theta = HPF_Gamma.random_gamma_factory((ncells,nfactors), a, bp)
+            theta = HPF_Gamma.random_gamma_factory((ncells,nfactors), a, bp,
+                    dtype=self.dtype)
 
         # Check if variational distributions for genes exist, create if not
         # Error if freeze_genes and eta and beta don't exists
@@ -499,10 +505,11 @@ class scHPF(BaseEstimator):
                 raise ValueError(msg)
         else:
             if reinit or (eta is None):
-                eta = HPF_Gamma.random_gamma_factory((ngenes,), cp, dp)
+                eta = HPF_Gamma.random_gamma_factory((ngenes,), cp, dp,
+                        dtype=self.dtype)
             if reinit or (beta is None):
                 beta = HPF_Gamma.random_gamma_factory((ngenes,nfactors),
-                        c, dp)
+                        c, dp, dtype=self.dtype)
 
         return (bp, dp, xi, eta, theta, beta)
 
