@@ -19,10 +19,12 @@ def _parser():
     ### Preprocess command
     prep = subparsers.add_parser('prep')
     prep.add_argument('-i', '--input', required=True,
-            help='Input data. Currently accepts either a whitespace-delimited '
-            'gene by cell UMI count matrix with 2 leading columns of gene '
-            'attributes (ENSEMBL_ID and GENE_NAME respectively), or a loom '
-            'file with row attribute `Gene`, which is a gene name.'
+            help='Input data. Currently accepts either: (1) a whitespace-'
+            'delimited gene by cell UMI count matrix with 2 leading columns '
+            'of gene attributes (ENSEMBL_ID and GENE_NAME respectively), or '
+            '(2) a loom file with at least one of the row attributes '
+            '`Accession` or `Gene`, where `Accession` is an ENSEMBL id and '
+            '`Gene` is the name.'
             )
     prep.add_argument('-o', '--outdir', required=True,
             help='Output directory. Does not need to exist.')
@@ -140,8 +142,16 @@ if __name__=='__main__':
         print('Loading data......')
         if args.input.endswith('.loom'):
             umis, genes = pp.load_loom(args.input)
-            candidate_names = genes['Gene']
-            genelist_col = 1
+            if 'Accession' in genes.columns:
+                candidate_names = genes['Accession']
+                genelist_col = 0
+            elif 'Gene' in genes.columns:
+                candidate_names = genes['Gene']
+                genelist_col = 1
+            else:
+                msg = 'loom files must have at least one of the row '
+                msg+= 'attributes: `Gene` or `Accession`.'
+                raise ValueError(msg)
         else:
             umis, genes = pp.load_txt(args.input)
             genelist_col = 1 if args.filter_by_gene_name else 0

@@ -38,12 +38,25 @@ def load_loom(filename):
     coo : coo_matrix
         cell x gene sparse count matrix
     genes : Dataframe
-        Dataframe of gene attributes
+        Dataframe of gene attributes.  Attributes are ordered so
+        Accession and Gene are the first columns, if those attributs are
+        present
     """
     import loompy
+    # load the loom file
     with loompy.connect(filename) as ds:
         loom_genes = pd.DataFrame(dict(ds.ra.items()))
         loom_coo = ds.sparse().T
+
+    # order gene attributes so Accession and Gene are the first two columns,
+    # if they are present
+    first_cols = []
+    for colname in ['Accession', 'Gene']:
+        if colname in loom_genes.columns:
+            first_cols.append(colname)
+    rest_cols = loom_genes.columns.difference(first_cols).tolist()
+    loom_genes = loom_genes[first_cols + rest_cols]
+
     return loom_coo,loom_genes
 
 
