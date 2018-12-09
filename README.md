@@ -1,17 +1,11 @@
 # Single-cell Hierarchical Poisson Factorization
 
-## Update
-A newer version of the code, which uses numba and is substantially more computationally effiecient is available on branch rewrite_release.  It will be merged into master shortly.
+## Updates!
+
+scHPF has a new, improved implementation in numba that includes both a command line interface and a scikit-learn-like API (release v0.2-alpha).  It is substantially faster and more memory-efficient than Tensorflow scHPF, especially when many virtual CPUs are available in a high performance compute cluster or with on demand computing like AWS.  Numba scHPF is not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon.  The old tensorflow version is tagged as v0.1-alpha.
 
 ## About
-Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](https://www.biorxiv.org/content/early/2018/07/11/367003), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
-
-## Updates
-
-scHPF has a new, improved implementation in numba that includes both a command line interface and a scikit-learn-like API.  It is substantially faster and more memory-efficient than Tensorflow scHPF, espcially when many virtual CPUs are available in a high performance compute cluster or with on demand computing like AWS.  Numba scHPF is not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon.  The old tensorflow version is tagged as v0.1-alpha.
-
-## About
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). scHPF takes genome-wide molecular counts as input, avoids prior normalization, and has fast, memory-efficient inference on sparse scRNA-seq data. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
 
 ## Installation
 ### Environment & Dependencies
