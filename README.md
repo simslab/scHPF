@@ -1,5 +1,9 @@
 # Single-cell Hierarchical Poisson Factorization
 
+## Update
+A newer version of the code, which uses numba and is substantially more computationally effiecient is available on branch rewrite_release.  It will be merged into master shortly.
+
+## About
 Pre-release of [Single-cell Hierarchical Poisson Factorization (scHPF)](https://www.biorxiv.org/content/early/2018/07/11/367003), as described in the forthcoming manuscript: <br/> *De novo* Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization.
 
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq) data. It adapts [Hierarchical Poisson Factorization](http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf) to avoid prior normalization and model variable sparsity across genes and cells. Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
@@ -33,12 +37,12 @@ The matrix should not have a header, but may be compressed with gzip or bzip2. W
 
 To preprocess the whitespace-delimited count matrix for a typical run, use the command:
 ```
-python SCHPF_HOME/scHPF/preprocessing.py --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 5 --whitelist GENE_WHITELIST
+python -m scHPF.preprocessing --input UMICOUNT_MATRIX --prefix PREFIX -o OUTPUT_DIR -m 5 --whitelist GENE_WHITELIST
 ```
 
 Where OUTPUT\_DIR does not need to exist and GENE\_WHITELIST is a two column, whitespace-delimited text file of ENSEMBL\_IDs and GENE\_SYMBOLs (see resources folder for an example).  As written, the command formats data for training and only includes genes that are (1) on the whitelist (eg protein coding) and (2) that we observe transcripts of in at least 5 cells.  After running this command, OUTPUT\_DIR should contain a matrix 'PREFIX.matrix.txt', a list of genes 'PREFIX.genes.txt', a preprocessing log file 'preprocessing.log.yaml', and a sparse-formatted training data file 'train.tsv'. More options and details for preprocessing can be viewed with 
 ```
-python SCHPF_HOME/scHPF/preprocessing.py -h
+python -m scHPF.preprocessing -h
 ```
 
 ### Training
@@ -46,17 +50,17 @@ Both computation time and memory requirements for scHPF scale with the number of
 
 Inference can be run using the train.py program.  For example:
 ```
-python SCHPF_HOME/scHPF/scHPF/train.py -i PREPROCESSING_OUTPUT_DIR -o TRAINING_OUTPUT_DIR -k 7 -t 5
+python -m scHPF.train -i PREPROCESSING_OUTPUT_DIR -o TRAINING_OUTPUT_DIR -k 7 -t 5
 ```
 This command performs approximate Bayesian inference on scHPF with, in this instance, seven factors and five different random initializations (in sequence). scHPF will automatically select the trial with the highest log likelikhood, and save the model in a subdirectory of TRAINING\_OUTPUT\_DIR with a name that states the value of k used and the id of the best run.  For example, the output of the previous command might be saved in 'TRAINING\_OUTPUT\_DIR/k007.run3;. More options for training can be viewed with
 ```
-python SCHPF_HOME/scHPF/train.py -h
+python -m scHPF.train -h
 ```
 
 ### Extracting scores
 To extract gene and cell scores from a trained scHPF model, run
 ```
-python SCHPF_HOME/scHPF/postprocessing.py score --param-dir PARAM_DIR
+python -m scHPF.postprocessing score --param-dir PARAM_DIR
 ```
 Where PARAM\_DIR is the subdirectory of TRAINING\_OUTPUT\_DIR in which the trained model was saved by the train.py command.  Cell and gene scores will be saved in 'TRAINING\_OUTPUT\_DIR/score/cell\_hnorm.txt' and 'TRAINING\_OUTPUT\_DIR/score/gene\_hnorm.txt'. 'cell\_hnorm.txt' is a cell by factor matrix of cell scores, where cells are in the same order as the original input matrix. 'gene\_hnorm.txt' is a gene by factor matrix of gene scores, where genes are in the same order as the genes in the PREFIX.genes.txt file produced by the preprocessing command.
 

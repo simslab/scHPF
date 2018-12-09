@@ -3,7 +3,7 @@
 import numpy as np
 import tensorflow as tf
 
-from util import get_median_1d
+from .util import get_median_1d
 
 
 class HPFMetrics(object):

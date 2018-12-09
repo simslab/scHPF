@@ -12,11 +12,11 @@ import numpy as np
 import pandas # not used, but corrects weird collision with tensorflow
 import tensorflow as tf
 
-from scio import load_sparse_exp
-from util import create_sparse_tensor
-from hpf_params import HyperParams, VariationalParams
-from hpf_inference import HPFInference
-from postprocessing import factor_metrics, plots, write_factor_metrics
+from .scio import load_sparse_exp
+from .util import create_sparse_tensor
+from .hpf_params import HyperParams, VariationalParams
+from .hpf_inference import HPFInference
+from .postprocessing import factor_metrics, plots, write_factor_metrics
 
 
 def run_trials(indir, outdir, prefix, nfactors, a, ap, bp, c, cp, dp, ntrials=1,
