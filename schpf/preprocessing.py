@@ -86,7 +86,7 @@ def load_txt(filename,  ngene_cols=2):
     genes = df[gene_cols]
     dense = df.drop(columns=gene_cols).values.T
     nz = np.nonzero(dense)
-    coo = coo_matrix((dense[nz], nz), dtype=np.int32)
+    coo = coo_matrix((dense[nz], nz), shape=dense.shape, dtype=np.int32)
     return coo, genes
 
 

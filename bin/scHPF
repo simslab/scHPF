@@ -171,7 +171,7 @@ if __name__=='__main__':
         if args.blacklist is not None and len(args.blacklist):
             blacklist = pd.read_csv(args.blacklist, delim_whitespace=True,
                     header=None)
-            mask &= pp.genelist(candidate_names, blacklist[genelist_col],
+            mask &= pp.genelist_mask(candidate_names, blacklist[genelist_col],
                         whitelist=False, split_on_dot = ~args.no_split_on_dot)
 
         print('Filtering data......')
