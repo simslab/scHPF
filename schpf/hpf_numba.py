@@ -95,14 +95,16 @@ def compute_Xphi_data(X_data, X_row, X_col,
         for k in range(nfactors):
             logrho[k] = theta_e_logx[X_row[i],k] + beta_e_logx[X_col[i], k]
 
-        #logsumexp to normalize logrho
+        #log normalizer trick
+        rho_shift = np.zeros((Xphi.shape[1]), dtype=dtype)
+        normalizer = np.zeros(1, dtype=dtype)[0]
         largest_in = np.max(logrho)
-        lse_sum = np.zeros(1, dtype=dtype)[0]
         for k in range(nfactors):
-            lse_sum += np.exp(logrho[k] - largest_in)
-        lse = np.log(lse_sum) + largest_in
+            rho_shift[k] = np.exp(logrho[k] - largest_in)
+            normalizer += rho_shift[k]
+
         for k in range(nfactors):
-            Xphi[i,k] = X_data[i] * np.exp(logrho[k] - lse)
+            Xphi[i,k] = X_data[i] * rho_shift[k] / normalizer
 
     return Xphi
 
