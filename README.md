@@ -2,7 +2,7 @@
 
 ## Updates!
 
-scHPF has a new, improved implementation in numba that includes both a CLI and a scikit-learn-like API (release v0.2-alpha).  It is substantially faster and more memory-efficient than Tensorflow scHPF, especially when many virtual CPUs are available.  Numba scHPF is not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon.  The old tensorflow version is tagged as v0.1-alpha.
+scHPF has a new, improved implementation in numba that includes both a CLI and a scikit-learn-like API. It is substantially faster and more memory-efficient than Tensorflow scHPF, especially when many virtual CPUs are available. Numba scHPF is not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon. 
 
 ## About
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
