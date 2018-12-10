@@ -15,7 +15,6 @@ scHPF requires Python >= 3.6 and the packages:
 - pandas
 - (optional) loompy
 
-**IMPORTANT** numba release 0.41 considerably reduces scHPF's performance.  While I figure out the issue, I've 
 
 The easiest way to setup a python environment for scHPF is with [anaconda](https://www.continuum.io/downloads).
 ```
