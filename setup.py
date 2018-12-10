@@ -5,7 +5,7 @@ from setuptools import find_packages, setup
 __version__ = '0.2.1'
 
 requires = ['scikit-learn',
-            'numba',
+            'numba >=0.35, <=0.40',
             'scipy >= 1.1',
             'numpy',
             'pandas' # TODO get rid of this because only used in preprocessing
