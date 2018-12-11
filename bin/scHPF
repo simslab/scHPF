@@ -1,0 +1,256 @@
+#! /usr/bin/env python
+
+import os
+import argparse
+
+import numpy as np
+import pandas as pd
+from scipy.io import mmread, mmwrite
+from scipy.sparse import coo_matrix
+
+from schpf import scHPF
+from schpf import load_model, save_model, run_trials
+import schpf.preprocessing as pp
+
+def _parser():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='cmd')
+
+    ### Preprocess command
+    prep = subparsers.add_parser('prep')
+    prep.add_argument('-i', '--input', required=True,
+            help='Input data. Currently accepts either: (1) a whitespace-'
+            'delimited gene by cell UMI count matrix with 2 leading columns '
+            'of gene attributes (ENSEMBL_ID and GENE_NAME respectively), or '
+            '(2) a loom file with at least one of the row attributes '
+            '`Accession` or `Gene`, where `Accession` is an ENSEMBL id and '
+            '`Gene` is the name.'
+            )
+    prep.add_argument('-o', '--outdir', required=True,
+            help='Output directory. Does not need to exist.')
+    prep.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+    prep.add_argument('-m', '--min-cells', type=float, default=0.01, 
+            help='Minimum number of cells in which we must observe at '
+            'least one transcript of a gene for the gene to pass '
+            'filtering. If 0 <`min_cells`< 1, sets threshold to be '
+            '`min_cells` * ncells, rounded to the nearest integer.'
+            ' [Default 0.01]')
+    prep.add_argument('-w', '--whitelist', default='',
+            help='Tab-delimited file where first column contains ENSEMBL gene '
+            'ids to accept, and second column contains corresponding gene '
+            'names. If given, genes not on the whitelist are filtered from '
+            'the input matrix. Superseded by blacklist. Optional.')
+    prep.add_argument('-b', '--blacklist', default='',
+            help='Tab-delimited file where first column contains ENSEMBL gene '
+            'ids to exclude, and second column is the corresponding gene name. '
+            'Only performed if file given. Genes on the blacklist are '
+            'excluded even if they are also on the whitelist. Optional.')
+    prep.add_argument('--filter-by-gene-name', default=False, 
+            action='store_true', help='Use gene name rather than ENSEMBL '
+            'id to filter (with whitelist or blacklist).  Useful for '
+            'datasets where only gene symbols are given. Applies to both '
+            'whitelist and blacklist. Used by default when input is a loom '
+            'file.')
+    prep.add_argument('--no-split-on-dot', default=False, action='store_true',
+            help='Don\'t split gene symbol or name on period before '
+            'filtering white and blacklist. We do this by default for '
+            'ENSEMBL ids.')
+
+
+    ###### Train command
+    train = subparsers.add_parser('train')
+    # data and saving
+    train.add_argument('-i', '--input', required=True,
+            help="Training data. Expects either the mtx file output by the "
+            "prep command or a tab-separated tsv file formatted like:" 
+            "`CELL_ID\tGENE_ID\tUMI_COUNT`. In the later case, ids are "
+            "assumed to be 0 indexed and we assume no duplicates."
+            )
+    train.add_argument('-o', '--outdir', required=True,
+            help='Output directory for scHPF model. Will be created if does '
+            'not exist.')
+    train.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+
+    # Required model hyperparameter
+    train.add_argument('-k', '--nfactors', type=int, required=True,
+            help='Number of factors.')
+
+    # training parameters
+    train.add_argument('-t', '--ntrials',  type=int, default=1,
+            help='Number of times to run scHPF, selecting the trial with '
+            'best loss (on training data unless validation is given).'
+            ' [Default 1]')
+    train.add_argument('-v', '--validation', 
+            help='Validation data. Must have same format (either mtx or tsv) '
+            'as input. [Default None]' )
+    train.add_argument('-M', '--max-iter', type=int, default=1000,
+            help='Maximum iterations. [Default 1000].')
+    train.add_argument('-m', '--min-iter', type=int, default=30,
+            help='Minimum iterations. [Default 30]')
+    train.add_argument('-e',  '--epsilon', type=float, default=0.001,
+            help='Minimum percent decrease in loss between checks to continue '
+            'inference (convergence criteria). [Default 0.001].')
+    train.add_argument('-f', '--check_freq', type=int, default=10,
+            help='Number of iterations to run between convergence checks. '
+            '[Default 10].')
+    train.add_argument('--better-than-n-ago', default=5, type=int,
+            help= 'Stop condition if loss is getting worse.  Stops training '
+            'if loss is worse than `better_than_n_ago`*`check_freq` training steps '
+            'ago and getting worse. Normally not necessary to change.')
+    train.add_argument('--quiet', dest='verbose', action='store_false', 
+            default=True, help="Don't print intermediate llh.")
+    train.add_argument('--float32', action='store_true',
+            help="Use 32-bit floats instead of default 64-bit floats in "
+            "variational distrubtions")
+
+
+    ### Score command
+    score = subparsers.add_parser('score')
+    score.add_argument('-m', '--model', required=True,
+            help='Saved scHPF model from train command. Should have extension' 
+            '`.joblib`')
+    score.add_argument('-o', '--outdir', required=True,
+            help='Output directory for score files')
+    score.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+    score.add_argument('-g', '--genefile', default=None,
+            help='Create an additional file with gene names ranked by score '
+            'for each factor. Expects the gene.txt file output by the scHPF '
+            'prep command or a similarly formatted tab-delimited file without '
+            'headers. Uses the zero-indexed `--name_col`\'th column as gene '
+            'names. Optional.')
+    score.add_argument('--name-col', type=int, default=1,
+            help='The zero-indexed column of `genefile` to use as a gene name '
+            'when (optionally) ranking genes. If `--name_col` is greater than '
+            'the index of `genefile`\'s last column, it is automatically reset '
+            'to the last column\'s index. [Default 1]'
+        )
+
+    return parser
+
+
+if __name__=='__main__':
+    parser = _parser()
+    args = parser.parse_args()
+
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+
+    if args.cmd == 'prep':
+        print('Loading data......')
+        if args.input.endswith('.loom'):
+            umis, genes = pp.load_loom(args.input)
+            if 'Accession' in genes.columns:
+                candidate_names = genes['Accession']
+                genelist_col = 0
+            elif 'Gene' in genes.columns:
+                candidate_names = genes['Gene']
+                genelist_col = 1
+            else:
+                msg = 'loom files must have at least one of the row '
+                msg+= 'attributes: `Gene` or `Accession`.'
+                raise ValueError(msg)
+        else:
+            umis, genes = pp.load_txt(args.input)
+            genelist_col = 1 if args.filter_by_gene_name else 0
+            candidate_names = genes[genelist_col]
+        ncells, ngenes = umis.shape
+        print('......found {} cells and {} genes'.format(ncells, ngenes))
+
+        print('Generating masks for filtering......')
+        if args.min_cells < 0:
+            raise ValueError('min_cells must be >= 0')
+        mask = pp.min_cells_expressing_mask(umis, args.min_cells)
+        if args.whitelist is not None and len(args.whitelist):
+            whitelist = pd.read_csv(args.whitelist, delim_whitespace=True,
+                    header=None)
+            mask &= pp.genelist_mask(candidate_names, whitelist[genelist_col],
+                        split_on_dot = ~args.no_split_on_dot)
+        if args.blacklist is not None and len(args.blacklist):
+            blacklist = pd.read_csv(args.blacklist, delim_whitespace=True,
+                    header=None)
+            mask &= pp.genelist_mask(candidate_names, blacklist[genelist_col],
+                        whitelist=False, split_on_dot = ~args.no_split_on_dot)
+
+        print('Filtering data......')
+        # TODO : don't convert back to dense
+        genes = genes.loc[mask]
+        umis_dense = umis.toarray()[:, mask]
+        nz = np.nonzero(umis_dense)
+        filtered = coo_matrix((umis_dense[nz], nz))
+
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+        outprefix = '{}/{}'.format(args.outdir, prefix)
+        print('Writing filtered data to file......')
+        mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
+        genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
+                index=None)
+
+    elif args.cmd == 'train':
+        # load data
+        print( 'Loading data......' )
+        load_fnc = mmread if args.input.endswith('.mtx') else pp.load_coo
+        train = load_fnc(args.input)
+        if args.validation is not None:
+            vdata = load_fnc(args.validation)
+        else:
+            vdata = None
+        ncells, ngenes = train.shape
+        msg = '......found {} cells and {} genes'.format(ncells, ngenes)
+
+        # create model
+        print('Running trials......' )
+        dtype = np.float32 if args.float32 else np.float64
+        model = run_trials(train, 
+                    nfactors=args.nfactors, ntrials=args.ntrials,
+                    min_iter=args.min_iter, max_iter=args.max_iter,
+                    check_freq=args.check_freq, epsilon=args.epsilon,
+                    better_than_n_ago=args.better_than_n_ago,
+                    dtype=dtype, verbose=args.verbose, 
+                    validation_data=vdata)
+
+        # save the model
+        print('Saving best model......')
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+        outprefix = '{}/{}'.format(args.outdir, prefix)
+        outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
+                outprefix, args.nfactors, args.epsilon, args.ntrials)
+        save_model(model, outname)
+
+    elif args.cmd == 'score':
+        print('Loading model......')
+        model = load_model(args.model)
+
+        print('Calculating scores......')
+        cell_score = model.cell_score()
+        gene_score = model.gene_score()
+
+        print('Saving scores......')
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+        outprefix = '{}/{}'.format(args.outdir, prefix)
+        np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
+        np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
+
+        if args.genefile is not None:
+            print('Ranking genes......')
+            # load and format gene file
+            genes = np.loadtxt(args.genefile, delimiter='\t', dtype=str)
+            if len(genes.shape) == 1:
+                genes = genes[:,None]
+            # get column to use for gene names
+            last_col = genes.shape[1] - 1
+            name_col = last_col if args.name_col > last_col else args.name_col
+            print('......using {}\'th column of genefile as gene label'.format(
+                name_col))
+
+            # rank the genes by gene_score
+            ranks = np.argsort(gene_score, axis=0)[::-1]
+            ranked_genes = []
+            for i in range(gene_score.shape[1]):
+                ranked_genes.append(genes[ranks[:,i], name_col])
+            ranked_genes = np.stack(ranked_genes).T
+            print('Saving ranked genes......')
+            np.savetxt(outprefix + 'ranked_genes.txt', ranked_genes, 
+                    fmt="%s", delimiter='\t')
