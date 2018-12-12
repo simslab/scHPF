@@ -79,6 +79,11 @@ def load_txt(filename,  ngene_cols=2):
         ngenes x ngene_cols array of gene names/attributes
     """
     assert( ngene_cols > 0 )
+    if filename.endswith('.gz') or filename.endswith('.bz2'):
+        msg = '......'
+        msg+= 'Warning: Input file {} is compressed. '.format(filename)
+        msg+= 'It may be faster to manually decompress before loading.'
+        print(msg)
     df = pd.read_csv(filename, header=None, memory_map=True,
             delim_whitespace=True)
 
