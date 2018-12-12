@@ -631,9 +631,9 @@ def run_trials(X, nfactors,
             best_t = t
             if verbose:
                 print('New best! (trial {})'.format(t))
+        if verbose:
+            print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
-    if verbose:
-        print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
     return best_model
 
 
