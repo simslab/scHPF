@@ -3,7 +3,6 @@
 import ctypes
 import numpy as np
 from scipy.sparse import coo_matrix
-from scipy.special import logsumexp, digamma, gammaln
 import numba
 from numba.extending import get_cython_function_address as getaddr
 
@@ -170,64 +169,3 @@ def compute_capacity_rate_update(loading_vi_shape, loading_vi_rate, prior_rate):
         for i in range(loading_vi_shape.shape[0]):
             result[i] += loading_vi_shape[i,k] / loading_vi_rate[i,k]
     return result
-
-
-#### slow versions of functions
-def compute_Xphi_data_slow(X, theta, beta):
-    """ Slow version of Xphi computation using numpy/scipy
-
-    Parameters
-    ----------
-    X : numpy sparse matrix
-        (ncell, ngene) sparse data matrix
-    theta : HPF_Gamma
-        (ncell, k) matrix of variational distributions for theta
-    beta : HPF_Gamma
-        (ngene, k) matrix of variational distributions for beta
-
-    Returns
-    -------
-    Xphi : numpy array
-        (number_nonzero, nfactors) array of X * phi
-
-    """
-    logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
-    logphi = logrho - logsumexp(logrho, axis=1)[:,None]
-    return X.data[:,None] * np.exp(logphi)
-
-
-def compute_loading_shape_update_slow(Xphi_data, X_keep, X_reduce, nkeep,
-        nreduce, shape_prior, dtype=np.float64):
-    """Compute gamma shape updates for theta or beta using numpy/scipy
-
-    Parameters
-    ----------
-    Xphi_data : ndarray
-        (number_nonzero, nfactors) array of X * phi
-    X_keep : ndarray
-        (number_nonzer,) vector of indices along the axis of interest.
-        If X is an (ncell,ngene) coo_matrix, this should be X.row when
-        computing updates for theta and X.col when computing updates for
-        beta
-    X_reduce : ndarray
-        (number_nonzer,) vector of indices along the axis of to reduce.
-        If X is an (ncell,ngene) coo_matrix, this should be X.col when
-        computing updates for theta and X.row when computing updates for
-        beta
-    nkeep : int
-        Number of items on the axis of interest.  ncells when computing
-        updates for theta, and ngenes for updates for beta
-    nreduce : int
-        Number of items on the axis of interest.  ncells when computing
-        updates for theta, and ngenes for updates for beta
-    shape_prior : float
-        Hyperprior for parameter. a for theta, c for beta.
-
-    """
-    nfactors = Xphi_data.shape[1]
-    result = np.zeros((nkeep, nfactors), dtype=dtype)
-    for k in range(nfactors):
-        result[:,k] = coo_matrix(
-                         (Xphi_data[:, k], (X_keep, X_reduce)),(nkeep, nreduce)
-                        ).sum(1).A[:,0]
-    return shape_prior + result
