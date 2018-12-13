@@ -289,7 +289,28 @@ class scHPF(BaseEstimator):
 
 
     def project(self, X, validation_data=None, min_iter=10):
-        """Get bp,xi and theta for new data while fixing gene scores"""
+        """Project new cells into latent space
+
+        Gene distributions (beta and eta) are fixed.
+
+        Parameters
+        ----------
+        X: coo_matrix
+            Data to project
+        validation_data: coo_matrix, (optional, default None)
+            validation data, train data used if not given
+        min_iter: int (optional, default 10)
+            Replaces self.min_iter if not None. Few iterations are needed
+            because beta and eta are fixed.
+
+        Returns
+        -------
+        projection : scHPF
+            An scHPF object with variational distributions theta and xi (for the
+            new cells in `X`) and the same variational distributions as self
+            for gene distributions beta and eta
+
+        """
         (bp, _, xi, _, theta, _) = self._fit(X,
                 validation_data=validation_data, freeze_genes=True)
         new_scHPF = deepcopy(self)
