@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from collections import namedtuple
 import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.special import logsumexp, digamma, gammaln
