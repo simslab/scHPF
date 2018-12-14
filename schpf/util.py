@@ -28,10 +28,13 @@ def max_pairwise(gene_scores, ntop=300):
     """
     tops = np.argsort(gene_scores, axis=0)[-ntop:]
     max_pairwise = 0
-    for i in range(tops.shape[1]-1):
-        overlap = len(np.intersect1d(tops[:,i], tops[:,i+1]))
-        if overlap > max_pairwise:
-            max_pairwise = overlap
+    for i in range(tops.shape[1]):
+        for j in range(tops.shape[1]):
+            if i >= j:
+                continue
+            overlap = len(np.intersect1d(tops[:,i], tops[:,j]))
+            if overlap > max_pairwise:
+                max_pairwise = overlap
 
     p = hypergeom.pmf(k=max_pairwise, M=gene_scores.shape[0],
                 N=ntop, n=ntop) \
