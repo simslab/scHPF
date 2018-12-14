@@ -6,11 +6,7 @@ from scipy.sparse import coo_matrix
 from scipy.special import logsumexp, digamma, gammaln
 
 import pytest
-from numpy.testing import (
-    assert_approx_equal,
-    assert_allclose,
-    assert_array_almost_equal
-)
+from numpy.testing import assert_allclose
 
 from schpf import hpf_numba, scHPF
 
@@ -50,19 +46,22 @@ def Xphi(data, model):
     return data.data[:,None] * random_phi
 
 
+# Tests
+
 @pytest.mark.parametrize('x', [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000])
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_cython_digamma(x, dtype):
-    # xes = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
     x = dtype(x)
-    assert_approx_equal(hpf_numba.psi(x), digamma(x))
+    # using approx_equal for float32 :(
+    assert_allclose(hpf_numba.psi(x), digamma(x))
 
 
 @pytest.mark.parametrize('x', [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000])
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_cython_gammaln(x, dtype):
     x = dtype(x)
-    assert_approx_equal(hpf_numba.cgammaln(x), gammaln(x))
+    # using approx_equal for float32 :(
+    assert_allclose(hpf_numba.cgammaln(x), gammaln(x))
 
 
 def test_compute_Xphi_numba(data, model):
@@ -70,39 +69,60 @@ def test_compute_Xphi_numba(data, model):
         logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
         logphi = logrho - logsumexp(logrho, axis=1)[:,None]
         return X.data[:,None] * np.exp(logphi)
-    # reference value
     Xphi = compute_Xphi_numpy(data, model.theta, model.beta)
-    assert_array_almost_equal(
+    # increase rtol for float32
+    assert_allclose(
             hpf_numba.compute_Xphi_data(
                 data.data, data.row, data.col,
                 model.theta.vi_shape, model.theta.vi_rate,
                 model.beta.vi_shape, model.beta.vi_rate),
-            Xphi)
+            Xphi,
+            rtol=1e-5, atol=0)
 
 
 def test_compute_theta_shape_numba(model, Xphi, data):
-    update = np.zeros((N_CELLS, N_FACTORS), dtype=model.dtype)
+    reference = np.zeros((N_CELLS, N_FACTORS), dtype=model.dtype)
     for k in range(N_FACTORS):
-        update[:,k] = coo_matrix(
+        reference[:,k] = coo_matrix(
                          (Xphi[:, k], (data.row, data.col)),
                          (N_CELLS, N_GENES)
                         ).sum(1).A[:,0]
-    update += model.a
-    assert_allclose(update,
+    reference += model.a
+    assert_allclose(
             hpf_numba.compute_loading_shape_update(
                 Xphi, data.row, N_CELLS, model.a),
-            )
+            reference)
 
 
 def test_compute_beta_shape_numba(model, Xphi, data):
-    update = np.zeros((N_GENES, N_FACTORS), dtype=model.dtype)
+    reference = np.zeros((N_GENES, N_FACTORS), dtype=model.dtype)
     for k in range(N_FACTORS):
-        update[:,k] = coo_matrix(
+        reference[:,k] = coo_matrix(
                          (Xphi[:, k], (data.col, data.row)),
                          (N_GENES, N_CELLS)
                         ).sum(1).A[:,0]
-    update += model.c
+    reference += model.c
     assert_allclose(
             hpf_numba.compute_loading_shape_update(
                 Xphi, data.col, N_GENES, model.c),
-            update)
+            reference)
+
+
+def test_compute_theta_rate_numba(model):
+    reference = model.xi.e_x[:,None] + model.beta.e_x.sum(0)[None,:]
+    assert_allclose(
+            hpf_numba.compute_loading_rate_update(
+                model.xi.vi_shape, model.xi.vi_rate,
+                model.beta.vi_shape, model.beta.vi_rate),
+            reference
+            )
+
+
+def test_compute_eta_rate_numba(model):
+    reference = model.beta.e_x.sum(axis=1) + model.dp
+    assert_allclose(
+            hpf_numba.compute_capacity_rate_update(
+                model.beta.vi_shape, model.beta.vi_rate,
+                model.dp),
+            reference,
+            rtol=1e-6, atol=0)
