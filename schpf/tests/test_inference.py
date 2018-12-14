@@ -15,7 +15,7 @@ np.random.seed(42)
 N_CELLS, N_GENES, NZ_FRAC, N_FACTORS = (300, 1200, 0.03, 4)
 NNZ = int(N_CELLS * N_GENES * NZ_FRAC)
 
-# dummy expression counts
+# Fixtures
 @pytest.fixture()
 def data():
     X_data = np.random.poisson(0.5, NNZ)
@@ -125,3 +125,18 @@ def test_compute_eta_rate_numba(model):
                 model.dp),
             reference,
             rtol=1e-6, atol=0)
+
+
+def test_llh_pois(data, model):
+    e_rate = model.theta.e_x @ model.beta.e_x.T
+    desired = data.data * np.log(e_rate[data.row, data.col]) \
+                - e_rate[data.row, data.col] \
+                - gammaln(data.data + 1)
+    assert_allclose(
+            hpf_numba.compute_pois_llh(data.data, data.row, data.col,
+                model.theta.vi_shape, model.theta.vi_rate,
+                model.beta.vi_shape, model.beta.vi_rate),
+            desired,
+            rtol=1e-6, atol=0)
+
+
