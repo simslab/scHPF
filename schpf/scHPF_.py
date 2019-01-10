@@ -288,7 +288,8 @@ class scHPF(BaseEstimator):
         return self
 
 
-    def project(self, X, validation_data=None, min_iter=10):
+    def project(self, X, validation_data=None, min_iter=10,
+            replace=False):
         """Project new cells into latent space
 
         Gene distributions (beta and eta) are fixed.
@@ -302,6 +303,8 @@ class scHPF(BaseEstimator):
         min_iter: int (optional, default 10)
             Replaces self.min_iter if not None. Few iterations are needed
             because beta and eta are fixed.
+        replace: bool (optional, default False)
+            Replace theta, xi, and bp with projected values in self
 
         Returns
         -------
@@ -311,13 +314,19 @@ class scHPF(BaseEstimator):
             for gene distributions beta and eta
 
         """
-        (bp, _, xi, _, theta, _) = self._fit(X,
-                validation_data=validation_data, freeze_genes=True)
-        new_scHPF = deepcopy(self)
-        new_scHPF.bp = bp
-        new_scHPF.xi = xi
-        new_scHPF.theta = theta
-        return new_scHPF
+        (bp, _, xi, _, theta, _) = self._fit(X, validation_data=validation_data,
+                min_iter=min_iter, freeze_genes=True)
+        if replace:
+            self.bp = bp
+            self.xi = xi
+            self.theta = theta
+            return self
+        else:
+            new_scHPF = deepcopy(self)
+            new_scHPF.bp = bp
+            new_scHPF.xi = xi
+            new_scHPF.theta = theta
+            return new_scHPF
 
 
     def save(self, file_name):
@@ -406,11 +415,13 @@ class scHPF(BaseEstimator):
         # get empirically set hyperparameters and variational distributions
         bp, dp, xi, eta, theta, beta = self._setup(X, freeze_genes, reinit)
 
-        # Make first updates for hierarchical prior
+        # Make first updates for hierarchical shape prior
         # (vi_shape is constant, but want to update full distribution)
         xi.vi_shape[:] = ap + nfactors * a
         if not freeze_genes:
             eta.vi_shape[:] = cp + nfactors * c
+
+        ## init
 
         pct_change = []
         min_iter = self.min_iter if min_iter is None else min_iter
