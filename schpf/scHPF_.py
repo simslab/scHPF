@@ -196,6 +196,16 @@ class scHPF(BaseEstimator):
         self.loss = []
 
 
+    @property
+    def ngenes(self):
+        return self.eta.dims[0] if self.eta is not None else None
+
+
+    @property
+    def ncells(self):
+        return self.xi.dims[0] if self.xi is not None else None
+
+
     def cell_score(self, xi=None, theta=None):
         """Get cell score from xi and theta
 
