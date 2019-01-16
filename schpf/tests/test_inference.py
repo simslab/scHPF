@@ -12,35 +12,9 @@ from schpf import hpf_numba, scHPF
 # globals & seed
 np.random.seed(42)
 
-N_CELLS, N_GENES, NZ_FRAC, N_FACTORS = (300, 1200, 0.03, 4)
-NNZ = int(N_CELLS * N_GENES * NZ_FRAC)
-
-# Fixtures
-@pytest.fixture()
-def data():
-    X_data = np.random.poisson(0.5, NNZ)
-    X_data[X_data==0] = 1
-    cell_ix = np.random.randint(0, N_CELLS, NNZ, dtype=np.int32)
-    gene_ix = np.random.randint(0, N_GENES, NNZ, dtype=np.int32)
-    X = coo_matrix(
-            (X_data, (cell_ix, gene_ix)),
-            (N_CELLS, N_GENES),
-            dtype=np.int32)
-    X.sum_duplicates()
-    return X
-
-
-# TODO make these actual unit tests by making distributions from scratch
-@pytest.fixture(params=[np.float64, np.float32])
-def model(request, data):
-    model = scHPF(N_FACTORS, dtype=request.param)
-    model._initialize(data)
-    return model
-
-
 @pytest.fixture()
 def Xphi(data, model):
-    random_phi = np.random.dirichlet( np.ones(N_FACTORS),
+    random_phi = np.random.dirichlet( np.ones(model.nfactors),
             data.data.shape[0]).astype(model.dtype)
     return data.data[:,None] * random_phi
 
@@ -80,30 +54,31 @@ def test_compute_Xphi_numba(data, model):
 
 
 def test_compute_theta_shape_numba(model, Xphi, data):
-    reference = np.zeros((N_CELLS, N_FACTORS), dtype=model.dtype)
-    for k in range(N_FACTORS):
+    nfactors = model.nfactors
+    reference = np.zeros((model.ncells, nfactors), dtype=model.dtype)
+    for k in range(nfactors):
         reference[:,k] = coo_matrix(
                          (Xphi[:, k], (data.row, data.col)),
-                         (N_CELLS, N_GENES)
+                         (model.ncells, model.ngenes)
                         ).sum(1).A[:,0]
     reference += model.a
     assert_allclose(
             hpf_numba.compute_loading_shape_update(
-                Xphi, data.row, N_CELLS, model.a),
+                Xphi, data.row, model.ncells, model.a),
             reference)
 
 
 def test_compute_beta_shape_numba(model, Xphi, data):
-    reference = np.zeros((N_GENES, N_FACTORS), dtype=model.dtype)
-    for k in range(N_FACTORS):
+    reference = np.zeros((model.ngenes, model.nfactors), dtype=model.dtype)
+    for k in range(model.nfactors):
         reference[:,k] = coo_matrix(
                          (Xphi[:, k], (data.col, data.row)),
-                         (N_GENES, N_CELLS)
+                         (model.ngenes, model.ncells)
                         ).sum(1).A[:,0]
     reference += model.c
     assert_allclose(
             hpf_numba.compute_loading_shape_update(
-                Xphi, data.col, N_GENES, model.c),
+                Xphi, data.col, model.ngenes, model.c),
             reference)
 
 
