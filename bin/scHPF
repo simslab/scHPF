@@ -175,15 +175,12 @@ if __name__=='__main__':
                         whitelist=False, split_on_dot = ~args.no_split_on_dot)
 
         print('Filtering data......')
-        # TODO : don't convert back to dense
         genes = genes.loc[mask]
-        umis_dense = umis.toarray()[:, mask]
-        nz = np.nonzero(umis_dense)
-        filtered = coo_matrix((umis_dense[nz], nz))
+        filtered = umis.tolil()[:,mask].tocoo() # must convert to apply mask
 
+        print('Writing filtered data to file......')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
-        print('Writing filtered data to file......')
         mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)

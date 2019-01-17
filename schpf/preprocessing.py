@@ -118,8 +118,9 @@ def load_txt(filename,  ngene_cols=2):
                 cols.extend(c)
                 values.extend(val)
 
-            if (g%5000 == 0) and (g!=0):
-                print('......loaded {} genes for {} cells'.format(g+1, cell+1))
+                if (g%5000 == 0) and (g!=0):
+                    print('......loaded {} genes for {} cells'.format(
+                        g+1, cell+1))
 
         ncells, ngenes = len(llist[ngene_cols:]), g+1
         coo = coo_matrix((np.array(values), (np.array(rows),np.array(cols))),
