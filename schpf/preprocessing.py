@@ -9,7 +9,8 @@ def load_coo(filename):
     """Load a sparse coo matrix
 
     Assumes first column (dense row ids) are cells, second column (dense
-    column ids) are genes, and third column are nonzero counts.
+    column ids) are genes, and third column are nonzero counts. Also assumes
+    row and column ids are 0-indexed.
 
     Parameters
     ----------
@@ -66,8 +67,9 @@ def load_txt(filename,  ngene_cols=2):
     Parameters
     ----------
     filename : str
-        file to load.  Expected to be a gene x cell whitespace-delimited file where
-        the first `ngene_cols` are gene identifiers/names/ids, with no header
+        file to load.  Expected to be a gene x cell whitespace-delimited file
+        without a header where the first `ngene_cols` are gene identifiers,
+        names or other metadata.
     ngene_cols : int, default 2
         The number of columns that contain row attributes (ie gene id/names)
 
@@ -75,23 +77,55 @@ def load_txt(filename,  ngene_cols=2):
     -------
     coo : coo_matrix
         cell x gene sparse count matrix
-    genes :
+    genes : pd.DataFrame
         ngenes x ngene_cols array of gene names/attributes
     """
     assert( ngene_cols > 0 )
+    gene_cols = list(range(ngene_cols))
+
     if filename.endswith('.gz') or filename.endswith('.bz2'):
         msg = '......'
         msg+= 'WARNING: Input file {} is compressed. '.format(filename)
         msg+= 'It may be faster to manually decompress before loading.'
         print(msg)
-    df = pd.read_csv(filename, header=None, memory_map=True,
-            delim_whitespace=True)
 
-    gene_cols = list(range(ngene_cols))
-    genes = df[gene_cols]
-    dense = df.drop(columns=gene_cols).values.T
-    nz = np.nonzero(dense)
-    coo = coo_matrix((dense[nz], nz), shape=dense.shape, dtype=np.int32)
+        df = pd.read_csv(filename, header=None, memory_map=True,
+                delim_whitespace=True)
+
+        genes = df[gene_cols]
+        dense = df.drop(columns=gene_cols).values.T
+        nz = np.nonzero(dense)
+        coo = coo_matrix((dense[nz], nz), shape=dense.shape, dtype=np.int32)
+    else:
+        genes, rows, cols, values = [], [], [], []
+
+        # load row by row to conserve memory + actually often faster
+        with open(filename) as f:
+            # for each gene/row
+            for g, l in enumerate(f):
+                llist = l.split()
+                genes.append(llist[:ngene_cols])
+                r, c, val = [], [], []
+
+                # for each cell/column
+                for cell,v in enumerate(llist[ngene_cols:]):
+                    if v != '0':
+                        r.append(int(cell))
+                        c.append(int(g))
+                        val.append(int(v))
+
+                rows.extend(r)
+                cols.extend(c)
+                values.extend(val)
+
+            if (g%5000 == 0) and (g!=0):
+                print('......loaded {} genes for {} cells'.format(g+1, cell+1))
+
+        ncells, ngenes = len(llist[ngene_cols:]), g+1
+        coo = coo_matrix((np.array(values), (np.array(rows),np.array(cols))),
+                shape=(ncells,ngenes), dtype=np.int32)
+        genes = pd.DataFrame(genes)
+
     return coo, genes
 
 
@@ -109,7 +143,6 @@ def min_cells_expressing_mask(counts, min_cells, verbose=True):
         the threshold to round(min_cells * ncells)
     verbose : bool, default True
         if True, print the number of cells when a numbr between 0 and 1 is given
-
 
     Returns
     -------
