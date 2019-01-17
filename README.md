@@ -33,10 +33,8 @@ Once you have set up the environment, clone this repository and install.
 ```
 git clone git@github.com:simslab/scHPF.git
 cd scHPF
-python setup.py install
+pip install .
 ```
-### Installing with pip
-Coming soon.
 
 ## scHPF Command Line Interface (CLI) workflow
 ### Preprocessing
