@@ -7,13 +7,13 @@ from schpf import scHPF
 
 np.random.seed(42)
 
-N_CELLS, N_GENES, NZ_FRAC, N_FACTORS = (300, 1200, 0.03, 4)
+N_CELLS, N_GENES, NZ_FRAC, N_FACTORS = (300, 1000, 0.03, 4)
 NNZ = int(N_CELLS * N_GENES * NZ_FRAC)
 
 # Fixtures
 @pytest.fixture()
 def data():
-    X_data = np.random.poisson(0.5, NNZ)
+    X_data = np.random.negative_binomial(2, 0.5, NNZ)
     X_data[X_data==0] = 1
     cell_ix = np.random.randint(0, N_CELLS, NNZ, dtype=np.int32)
     gene_ix = np.random.randint(0, N_GENES, NNZ, dtype=np.int32)

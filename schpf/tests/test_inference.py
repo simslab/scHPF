@@ -50,7 +50,7 @@ def test_compute_Xphi_numba(data, model):
                 model.theta.vi_shape, model.theta.vi_rate,
                 model.beta.vi_shape, model.beta.vi_rate),
             Xphi,
-            rtol=1e-5, atol=0)
+            rtol=1e-5 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
 def test_compute_theta_shape_numba(model, Xphi, data):
@@ -65,7 +65,8 @@ def test_compute_theta_shape_numba(model, Xphi, data):
     assert_allclose(
             hpf_numba.compute_loading_shape_update(
                 Xphi, data.row, model.ncells, model.a),
-            reference)
+            reference,
+            rtol=1e-6 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
 def test_compute_beta_shape_numba(model, Xphi, data):
@@ -79,7 +80,8 @@ def test_compute_beta_shape_numba(model, Xphi, data):
     assert_allclose(
             hpf_numba.compute_loading_shape_update(
                 Xphi, data.col, model.ngenes, model.c),
-            reference)
+            reference,
+            rtol=1e-6 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
 def test_compute_theta_rate_numba(model):
@@ -99,7 +101,7 @@ def test_compute_eta_rate_numba(model):
                 model.beta.vi_shape, model.beta.vi_rate,
                 model.dp),
             reference,
-            rtol=1e-6, atol=0)
+            rtol=1e-6 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
 def test_llh_pois(data, model):
@@ -112,6 +114,6 @@ def test_llh_pois(data, model):
                 model.theta.vi_shape, model.theta.vi_rate,
                 model.beta.vi_shape, model.beta.vi_rate),
             desired,
-            rtol=1e-6, atol=0)
+            rtol=1e-6 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
