@@ -5,6 +5,7 @@ from scipy.sparse import coo_matrix
 
 import pandas as pd
 
+
 def load_coo(filename):
     """Load a sparse coo matrix
 
@@ -119,7 +120,7 @@ def load_txt(filename,  ngene_cols=2):
                 values.extend(val)
 
                 if (g%5000 == 0) and (g!=0):
-                    print('......loaded {} genes for {} cells'.format(
+                    print('      loaded {} genes for {} cells'.format(
                         g+1, cell+1))
 
         ncells, ngenes = len(llist[ngene_cols:]), g+1
@@ -149,6 +150,8 @@ def min_cells_expressing_mask(counts, min_cells, verbose=True):
     -------
     passing_mask : ndarray
         boolean array of passing genes
+
+    TODO verbose option + return min_cells
     """
     if min_cells < 1 and min_cells > 0:
         min_cells_frac = min_cells
@@ -191,3 +194,93 @@ def genelist_mask(candidates, genelist, whitelist=True, split_on_dot=True):
         mask = ~candidates.isin(genelist)
 
     return mask.values
+
+
+def load_and_filter(infile, min_cells, whitelist='', blacklist='',
+        filter_by_gene_name=False, no_split_on_dot=False, verbose=True):
+    """ Composite of loading and filtering intended for use by CLI
+    Parameters
+    ----------
+    infile : str
+        Input data. Currently accepts either: (1) a whitespace-delimited gene
+        by cell UMI count matrix with 2 leading columns of gene attributes
+        (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom file with at
+        least one of the row attributes `Accession` or `Gene`, where `Accession`
+        is an ENSEMBL id and `Gene` is the name.
+    min_cells : float
+        Minimum number of cells in which we must observe at least one transcript
+        of a gene for the gene to pass filtering. If 0 <`min_cells`< 1, sets
+        threshold to be `min_cells` * ncells, rounded to the nearest integer.
+    whitelist : str, optional
+        Tab-delimited file where first column contains ENSEMBL gene ids to
+        accept, and second column contains corresponding gene names. If given,
+        genes not on the whitelist are filtered from the input matrix.
+        Superseded by blacklist. Default None.
+    blacklist : str, optional
+        Tab-delimited file where first column contains ENSEMBL gene ids to
+        exclude, and second column is the corresponding gene name. Only
+        performed if file given. Genes on the blacklist are excluded even if
+        they are also on the whitelist.
+    filter_by_gene_name : bool, optional
+        Use gene name rather than ENSEMBL id to filter (with whitelist or
+        blacklist).  Useful for datasets where only gene symbols are given.
+        Applies to both whitelist and blacklist. Used by default when input
+        is a loom file. Default False.
+    no_split_on_dot : bool, optional
+        Don't split gene symbol or name on period before filtering white and
+        blacklist. We do this by default for ENSEMBL ids. Default False.
+    verbose : bool, optional
+        Print progress messages. Default True
+
+    Returns
+    -------
+    filtered : ndarray
+    genes : pd.DataFrame
+
+    Raises
+    ------
+    ValueError
+    """
+    if verbose:
+        print('Loading data......')
+
+    if infile.endswith('.loom'):
+        umis, genes = load_loom(args.input)
+        if 'Accession' in genes.columns:
+            candidate_names = genes['Accession']
+            genelist_col = 0
+        elif 'Gene' in genes.columns:
+            candidate_names = genes['Gene']
+            genelist_col = 1
+        else:
+            msg = 'loom files must have at least one of the row '
+            msg+= 'attributes: `Gene` or `Accession`.'
+            raise ValueError(msg)
+    else:
+        umis, genes = load_txt(infile)
+        genelist_col = 1 if filter_by_gene_name else 0
+        candidate_names = genes[genelist_col]
+    ncells, ngenes = umis.shape
+    if verbose:
+        print('......found {} cells and {} genes'.format(ncells, ngenes))
+        print('Generating masks for filtering......')
+
+    if min_cells < 0:
+        raise ValueError('min_cells must be >= 0')
+    mask = min_cells_expressing_mask(umis, min_cells)
+    if whitelist is not None and len(whitelist):
+        whitelist = pd.read_csv(whitelist, delim_whitespace=True, header=None)
+        mask &= genelist_mask(candidate_names, whitelist[genelist_col],
+                              split_on_dot = ~no_split_on_dot)
+    if blacklist is not None and len(blacklist):
+        blacklist = pd.read_csv(blacklist, delim_whitespace=True, header=None)
+        mask &= genelist_mask(candidate_names, blacklist[genelist_col],
+                              whitelist=False, split_on_dot = ~no_split_on_dot)
+
+    if verbose:
+        print('Filtering data......')
+    genes = genes.loc[mask]
+    filtered = umis.tolil()[:,mask].tocoo() # must convert to apply mask
+
+    return filtered, genes
+

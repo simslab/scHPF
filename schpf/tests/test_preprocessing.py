@@ -18,8 +18,9 @@ NGENES = 500
 
 # TODO figure out how to get this without going this far up tree or doubling
 # perhaps make a small copy?
-PROTEIN_CODING = Path(*Path(__file__).parts[:-3]) / Path(
-        'resources/gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt')
+PROTEIN_CODING = str(Path(*Path(__file__).parts[:-3]) / Path(
+        'resources/gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt'))
+BLIST = str(Path(__file__).parent /  Path('_data/sample_blacklist.txt'))
 
 
 @pytest.fixture()
@@ -28,16 +29,13 @@ def protein_coding():
 
 
 @pytest.fixture()
+def blacklist():
+    return pd.read_csv(BLIST, delim_whitespace=True, header=None)
+
+
+@pytest.fixture()
 def exp_genes():
     return pd.read_csv(TXT, delim_whitespace=True, header=None)[[0,1]]
-
-
-# def test_load_coo():
-    # assert False
-
-
-# def test_load_loom():
-    # assert False
 
 
 @pytest.mark.parametrize('ngene_cols', [2,3])
@@ -95,3 +93,22 @@ def test_genelist_mask(protein_coding, exp_genes):
     assert_array_equal(prep.genelist_mask(exp_genes[1], protein_coding[1],
                                           whitelist=False),
                        ~shared_gene)
+
+
+def test_load_and_filter(protein_coding, blacklist):
+    filtered_m2, genes_m2 = prep.load_and_filter(TXT, min_cells=2,
+            whitelist=PROTEIN_CODING, blacklist=BLIST)
+    assert_equal(filtered_m2.shape[0], NCELLS)
+    assert filtered_m2.shape[1] <= NGENES
+    assert_equal(filtered_m2.shape[1], len(genes_m2))
+    assert_equal(genes_m2[0].str.split('.').str[0].isin(
+                    blacklist[0].str.split('.').str[0]).sum(),
+                 0)
+    assert_equal(genes_m2[0].str.split('.').str[0].isin(
+                    protein_coding[0].str.split('.').str[0]).sum(),
+                 len(genes_m2))
+
+    filtered_m5, genes_m5 = prep.load_and_filter(TXT, min_cells=5,
+            whitelist=PROTEIN_CODING, blacklist=BLIST)
+    assert filtered_m5.shape[1] <= filtered_m2.shape[1]
+    assert np.all(filtered_m5.astype(bool).sum(axis=0).A >= 5)
