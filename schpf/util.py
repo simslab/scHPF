@@ -42,6 +42,3 @@ def max_pairwise(gene_scores, ntop=300):
                 N=ntop, n=ntop)
     Overlap = namedtuple('Overlap', ['overlap', 'p'])
     return Overlap(max_pairwise, p)
-
-
-
