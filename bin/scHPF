@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 
 from schpf import scHPF
 from schpf import load_model, save_model, run_trials
-import schpf.preprocessing as pp
+from schpf.preprocessing import load_and_filter, load_coo
 
 def _parser():
     parser = argparse.ArgumentParser()
@@ -83,8 +83,8 @@ def _parser():
             'best loss (on training data unless validation is given).'
             ' [Default 1]')
     train.add_argument('-v', '--validation', 
-            help='Validation data. Must have same format (either mtx or tsv) '
-            'as input. [Default None]' )
+            help='Validation data of selected nonzero entries. Must have same '
+            'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -97,8 +97,8 @@ def _parser():
             '[Default 10].')
     train.add_argument('--better-than-n-ago', default=5, type=int,
             help= 'Stop condition if loss is getting worse.  Stops training '
-            'if loss is worse than `better_than_n_ago`*`check_freq` training steps '
-            'ago and getting worse. Normally not necessary to change.')
+            'if loss is worse than `better_than_n_ago`*`check_freq` training '
+            'steps ago and getting worse. Normally not necessary to change.')
     train.add_argument('--quiet', dest='verbose', action='store_false', 
             default=True, help="Don't print intermediate llh.")
     train.add_argument('--float32', action='store_true',
@@ -136,54 +136,20 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     if not os.path.exists(args.outdir):
+        print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
 
     if args.cmd == 'prep':
-        print('Loading data......')
-        if args.input.endswith('.loom'):
-            umis, genes = pp.load_loom(args.input)
-            if 'Accession' in genes.columns:
-                candidate_names = genes['Accession']
-                genelist_col = 0
-            elif 'Gene' in genes.columns:
-                candidate_names = genes['Gene']
-                genelist_col = 1
-            else:
-                msg = 'loom files must have at least one of the row '
-                msg+= 'attributes: `Gene` or `Accession`.'
-                raise ValueError(msg)
-        else:
-            umis, genes = pp.load_txt(args.input)
-            genelist_col = 1 if args.filter_by_gene_name else 0
-            candidate_names = genes[genelist_col]
-        ncells, ngenes = umis.shape
-        print('......found {} cells and {} genes'.format(ncells, ngenes))
+        filtered, genes = load_and_filter(args.input, 
+                min_cells=args.min_cells, 
+                whitelist=args.whitelist, 
+                blacklist=args.blacklist, 
+                filter_by_gene_name=args.filter_by_gene_name,
+                no_split_on_dot=args.split_on_dot)
 
-        print('Generating masks for filtering......')
-        if args.min_cells < 0:
-            raise ValueError('min_cells must be >= 0')
-        mask = pp.min_cells_expressing_mask(umis, args.min_cells)
-        if args.whitelist is not None and len(args.whitelist):
-            whitelist = pd.read_csv(args.whitelist, delim_whitespace=True,
-                    header=None)
-            mask &= pp.genelist_mask(candidate_names, whitelist[genelist_col],
-                        split_on_dot = ~args.no_split_on_dot)
-        if args.blacklist is not None and len(args.blacklist):
-            blacklist = pd.read_csv(args.blacklist, delim_whitespace=True,
-                    header=None)
-            mask &= pp.genelist_mask(candidate_names, blacklist[genelist_col],
-                        whitelist=False, split_on_dot = ~args.no_split_on_dot)
-
-        print('Filtering data......')
-        # TODO : don't convert back to dense
-        genes = genes.loc[mask]
-        umis_dense = umis.toarray()[:, mask]
-        nz = np.nonzero(umis_dense)
-        filtered = coo_matrix((umis_dense[nz], nz))
-
+        print('Writing filtered data to file......')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
-        print('Writing filtered data to file......')
         mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
@@ -191,7 +157,7 @@ if __name__=='__main__':
     elif args.cmd == 'train':
         # load data
         print( 'Loading data......' )
-        load_fnc = mmread if args.input.endswith('.mtx') else pp.load_coo
+        load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
         if args.validation is not None:
             vdata = load_fnc(args.validation)
@@ -218,6 +184,7 @@ if __name__=='__main__':
         outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
                 outprefix, args.nfactors, args.epsilon, args.ntrials)
         save_model(model, outname)
+        print('\n')
 
     elif args.cmd == 'score':
         print('Loading model......')

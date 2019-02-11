@@ -33,10 +33,8 @@ Once you have set up the environment, clone this repository and install.
 ```
 git clone git@github.com:simslab/scHPF.git
 cd scHPF
-python setup.py install
+pip install .
 ```
-### Installing with pip
-Coming soon.
 
 ## scHPF Command Line Interface (CLI) workflow
 ### Preprocessing
@@ -56,11 +54,11 @@ For whitespace-delimited UMI-count files, filtering is performed using the input
 #### Running the prep command
 To preprocess genome-wide UMI counts for a typical run, use the command:
 ```
-scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 0.01 -w GENE_WHITELIST
+scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 5 -w GENE_WHITELIST
 ```
 As written, the command formats data for training and only includes genes that are:
 - on the whitelist (eg protein coding) and 
-- that we observe transcripts of in at least 0.1% of cells. 
+- that we observe transcripts of in at least 5 cells. 
 
 
 After running this command, `OUTDIR` should contain a matrix market file, `train.mtx`, and an ordered list of genes, `genes.txt`. An optional prefix argument can be added, which is prepended to to the output file names.

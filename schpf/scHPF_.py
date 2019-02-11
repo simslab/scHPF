@@ -196,6 +196,16 @@ class scHPF(BaseEstimator):
         self.loss = []
 
 
+    @property
+    def ngenes(self):
+        return self.eta.dims[0] if self.eta is not None else None
+
+
+    @property
+    def ncells(self):
+        return self.xi.dims[0] if self.xi is not None else None
+
+
     def cell_score(self, xi=None, theta=None):
         """Get cell score from xi and theta
 
@@ -288,15 +298,45 @@ class scHPF(BaseEstimator):
         return self
 
 
-    def project(self, X, validation_data=None, min_iter=10):
-        """Get bp,xi and theta for new data while fixing gene scores"""
-        (bp, _, xi, _, theta, _) = self._fit(X,
-                validation_data=validation_data, freeze_genes=True)
-        new_scHPF = deepcopy(self)
-        new_scHPF.bp = bp
-        new_scHPF.xi = xi
-        new_scHPF.theta = theta
-        return new_scHPF
+    def project(self, X, validation_data=None, min_iter=10,
+            replace=False):
+        """Project new cells into latent space
+
+        Gene distributions (beta and eta) are fixed.
+
+        Parameters
+        ----------
+        X: coo_matrix
+            Data to project
+        validation_data: coo_matrix, (optional, default None)
+            validation data, train data used if not given
+        min_iter: int (optional, default 10)
+            Replaces self.min_iter if not None. Few iterations are needed
+            because beta and eta are fixed.
+        replace: bool (optional, default False)
+            Replace theta, xi, and bp with projected values in self
+
+        Returns
+        -------
+        projection : scHPF
+            An scHPF object with variational distributions theta and xi (for the
+            new cells in `X`) and the same variational distributions as self
+            for gene distributions beta and eta
+
+        """
+        (bp, _, xi, _, theta, _) = self._fit(X, validation_data=validation_data,
+                min_iter=min_iter, freeze_genes=True)
+        if replace:
+            self.bp = bp
+            self.xi = xi
+            self.theta = theta
+            return self
+        else:
+            new_scHPF = deepcopy(self)
+            new_scHPF.bp = bp
+            new_scHPF.xi = xi
+            new_scHPF.theta = theta
+            return new_scHPF
 
 
     def save(self, file_name):
@@ -385,11 +425,13 @@ class scHPF(BaseEstimator):
         # get empirically set hyperparameters and variational distributions
         bp, dp, xi, eta, theta, beta = self._setup(X, freeze_genes, reinit)
 
-        # Make first updates for hierarchical prior
+        # Make first updates for hierarchical shape prior
         # (vi_shape is constant, but want to update full distribution)
         xi.vi_shape[:] = ap + nfactors * a
         if not freeze_genes:
             eta.vi_shape[:] = cp + nfactors * c
+
+        ## init
 
         pct_change = []
         min_iter = self.min_iter if min_iter is None else min_iter
@@ -630,10 +672,9 @@ def run_trials(X, nfactors,
             best_loss = loss
             best_t = t
             if verbose:
-                print('New best! (trial {})'.format(t))
+                print('New best!'.format(t))
+        if verbose:
+            print('Trial {0} loss: {1:.6f}'.format(t, loss))
+            print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
-    if verbose:
-        print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
     return best_model
-
-

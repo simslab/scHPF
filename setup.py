@@ -2,7 +2,7 @@
 
 from setuptools import find_packages, setup
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 requires = ['scikit-learn',
             'numba >=0.35, <=0.40',
@@ -11,6 +11,7 @@ requires = ['scikit-learn',
             'pandas' # TODO get rid of this because only used in preprocessing
             ]
 
+tests_require = ['pytest']
 extras_require = {
         'loompy_preprocessing' : ['loompy']
         }
@@ -22,6 +23,7 @@ setup(
     scripts=['bin/scHPF'],
     python_requires='>=3.6',
     install_requires=requires,
+    tests_require=tests_require,
     extras_require=extras_require,
     author = 'Hanna Mendes Levitin',
     author_email = 'hml2134@columbia.edu',
