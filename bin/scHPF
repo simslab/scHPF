@@ -82,9 +82,9 @@ def _parser():
             help='Number of times to run scHPF, selecting the trial with '
             'best loss (on training data unless validation is given).'
             ' [Default 1]')
-    train.add_argument('-v', '--validation', 
-            help='Validation data of selected nonzero entries. Must have same '
-            'format (either mtx or tsv) as input. [Default None]' )
+    # train.add_argument('-vnz', '--validation-nonzero', 
+            # help='Validation data of selected nonzero entries. Must have same '
+            # 'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -159,10 +159,10 @@ if __name__=='__main__':
         print( 'Loading data......' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
-        if args.validation is not None:
-            vdata = load_fnc(args.validation)
-        else:
-            vdata = None
+        # if args.validation_nonzero is not None:
+            # vnz = load_fnc(args.validation_nonzero)
+        # else:
+            # vnz = None
         ncells, ngenes = train.shape
         msg = '......found {} cells and {} genes'.format(ncells, ngenes)
 
@@ -174,8 +174,7 @@ if __name__=='__main__':
                     min_iter=args.min_iter, max_iter=args.max_iter,
                     check_freq=args.check_freq, epsilon=args.epsilon,
                     better_than_n_ago=args.better_than_n_ago,
-                    dtype=dtype, verbose=args.verbose, 
-                    validation_data=vdata)
+                    dtype=dtype, verbose=args.verbose)
 
         # save the model
         print('Saving best model......')

@@ -12,6 +12,7 @@ from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
+import schpf.loss as loss_fnc
 
 
 class HPF_Gamma(object):
@@ -255,6 +256,10 @@ class scHPF(BaseEstimator):
         ----------
         X: coo_matrix
             Data to compute Poisson log likelihood of. Assumed to be nonzero.
+        theta : HPF_Gamma, optional
+            If given, use for theta instead of self.theta
+        beta : HPF_Gamma, optional
+            If given, use for beta instead of self.beta
 
         Returns
         -------
@@ -262,44 +267,42 @@ class scHPF(BaseEstimator):
         """
         theta = self.theta if theta is None else theta
         beta = self.beta if beta is None else beta
-        try:
-            llh = compute_pois_llh(X.data, X.row, X.col,
-                                   theta.vi_shape, theta.vi_rate,
-                                   beta.vi_shape, beta.vi_rate)
-        except NameError:
-            e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
-            llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
-        return llh
+        return loss_fnc.pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
 
-    def pois_llh(self, X, **params):
-        """Convenience method for total llh """
-        return np.sum(self.pois_llh_pointwise(X, **params))
+    def mean_negative_pois_llh(X, theta=None, beta=None, **kwargs):
+        """Convenience method for mean negative llh of nonzero entries
+
+        """
+        theta = self.theta if theta is None else theta
+        beta = self.beta if beta is None else beta
+        return loss_fnc.mean_negative_pois_llh(X=X, theta=theta, beta=beta)
 
 
-    def fit(self, X, validation_data=None, **params):
+    def fit(self, X, **params):
         """Fit an scHPF model
 
         Parameters
         ----------
         X: coo_matrix
             Data to fit
-        validation_data: coo_matrix, (optional, default None)
-            validation data, train data used if not given
+        validation_nz: coo_matrix, (optional, default None)
+            coo_matrix, which should have the same shape as
         """
-        (bp, dp, xi, eta, theta, beta) = self._fit(X,
-                validation_data=validation_data, **params)
+        (bp, dp, xi, eta, theta, beta, loss) = self._fit(
+                X, **params)
         self.bp = bp
         self.dp = dp
         self.xi = xi
         self.eta = eta
         self.theta = theta
         self.beta = beta
+        self.loss = loss
         return self
 
 
-    def project(self, X, validation_data=None, min_iter=10,
-            replace=False):
+    def project(self, X, replace=False, min_iter=4, max_iter=14, check_freq=2,
+            **kwargs):
         """Project new cells into latent space
 
         Gene distributions (beta and eta) are fixed.
@@ -307,14 +310,17 @@ class scHPF(BaseEstimator):
         Parameters
         ----------
         X: coo_matrix
-            Data to project
-        validation_data: coo_matrix, (optional, default None)
-            validation data, train data used if not given
-        min_iter: int (optional, default 10)
-            Replaces self.min_iter if not None. Few iterations are needed
-            because beta and eta are fixed.
+            Data to project.  Should have self.ngenes columns
         replace: bool (optional, default False)
             Replace theta, xi, and bp with projected values in self
+        min_iter: int (optional, default 4)
+            Replaces self.min_iter if not None. Few iterations are needed
+            because beta and eta are fixed.
+        max_iter: int (optional, default 14)
+            Replaces self.max_iter if not None. Few iterations are needed
+            because beta and eta are fixed.
+        check_freq: int (optional, default 2)
+            Number of training iterations between calculating loss.
 
         Returns
         -------
@@ -324,8 +330,9 @@ class scHPF(BaseEstimator):
             for gene distributions beta and eta
 
         """
-        (bp, _, xi, _, theta, _) = self._fit(X, validation_data=validation_data,
-                min_iter=min_iter, freeze_genes=True)
+        (bp, _, xi, _, theta, _) = self._fit(X,
+                min_iter=min_iter, max_iter=max_iter, check_freq=check_freq,
+                freeze_genes=True)
         if replace:
             self.bp = bp
             self.xi = xi
@@ -372,19 +379,18 @@ class scHPF(BaseEstimator):
 
 
     def _score(self, capacity, loading):
+        """Get hierarchically normalized gene or cell loadings"""
         return loading.e_x * capacity.e_x[:,None]
 
 
-    def _fit(self, X, validation_data=None, freeze_genes=False, reinit=True,
-            min_iter=None, checkstep_function=None, verbose=None):
+    def _fit(self, X, freeze_genes=False, reinit=True, min_iter=None,
+            loss_function=None, checkstep_function=None, verbose=None):
         """Combined internal fit/transform function
 
         Parameters
         ----------
         X: coo_matrix
             Data to fit
-        validation_data: coo_matrix, (optional, default None)
-            validation data, train data used if not given
         freeze_genes: bool, (optional, default False)
             Should we update gene variational distributions eta and beta
         reinit: bool, (optional, default True)
@@ -393,9 +399,17 @@ class scHPF(BaseEstimator):
         min_iter: int (optional, default None)
             Replaces self.min_iter if given.  Useful when projecting
             new data onto an existing scHPF model.
+        loss_function : function, (optional, default None)
+            Function to use for loss, which is assumed to be nonzero and
+            decrease with improvement. Must accept hyperparameters a, ap,
+            bp, c, cp, and dp and the variational distributions for xi, eta,
+            theta, and beta even if only some of these values are used. Should
+            have an internal reference to any data used (_fit will not pass it
+            any data). If `loss_function` is not given/None, the mean negative
+            log likelihood of nonzero values in training data `X` is used.
         checkstep_function : function  (optional, default None)
-            A function that takes arguments theta, beta, and t and, if
-            given, is called at check_interval. Intended use is
+            A function that takes arguments bp, dp, xi, eta, theta, beta, and
+            t and, if given, is called at check_interval. Intended use is
             to check additional stats during training, potentially with
             hardcoded data, but is unrestricted.  Use at own risk.
         verbose: bool (optional, default None)
@@ -417,6 +431,8 @@ class scHPF(BaseEstimator):
         beta: HPF_Gamma
             Learned variational distributions for beta. Unchanged if
             freeze_genes.
+        loss : list
+            loss at each checkstep
         """
         # local (convenience) vars for model
         nfactors, (ncells, ngenes) = self.nfactors, X.shape
@@ -431,9 +447,14 @@ class scHPF(BaseEstimator):
         if not freeze_genes:
             eta.vi_shape[:] = cp + nfactors * c
 
-        ## init
+        # setup loss function as mean negative llh of nonzero training data
+        # if the loss function is not given
+        if loss_function is None:
+            loss_function = loss_fnc.get_loss_fnc_for_data(
+                    loss_fnc.mean_negative_pois_llh, X)
 
-        pct_change = []
+        ## init
+        loss, pct_change = [], []
         min_iter = self.min_iter if min_iter is None else min_iter
         verbose = self.verbose if verbose is None else verbose
         for t in range(self.max_iter):
@@ -464,15 +485,21 @@ class scHPF(BaseEstimator):
 
             # record llh/percent change and check for convergence
             if t % self.check_freq == 0:
+
                 # chech llh
-                vX = validation_data if validation_data is not None else X
-                curr = -self.pois_llh(vX, theta=theta, beta=beta)
-                curr /= vX.data.shape[0]
-                self.loss.append(curr)
+                # vX = validation_data if validation_data is not None else X
+                try :
+                    curr = loss_function(
+                                a=a, ap=ap, bp=bp, c=c, cp=cp, dp=dp,
+                                xi=xi, eta=eta, theta=theta, beta=beta)
+                    loss.append(curr)
+                except NameError as e:
+                    print('Invalid loss function')
+                    raise e
 
                 # calculate percent change
                 try:
-                    prev = self.loss[-2]
+                    prev = loss[-2]
                     pct_change.append(100 * (curr - prev) / np.abs(prev))
                 except IndexError:
                     pct_change.append(100)
@@ -481,15 +508,15 @@ class scHPF(BaseEstimator):
                             t, curr, pct_change[-1])
                     print(msg)
                 if checkstep_function is not None:
-                    checkstep_function(theta, beta, t)
+                    checkstep_function(bp, dp, xi, eta, theta, beta, t)
 
                 # check convergence
-                if len(self.loss) > 3 and t >= min_iter:
+                if len(loss) > 3 and t >= min_iter:
                     # convergence conditions (all must be met)
                     current_small = np.abs(pct_change[-1]) < self.epsilon
                     prev_small = np.abs(pct_change[-2]) < self.epsilon
                     not_inflection = not (
-                            (np.abs(self.loss[-3]) < np.abs(prev)) \
+                            (np.abs(loss[-3]) < np.abs(prev)) \
                             and (np.abs(prev) > np.abs(curr)))
                     converged = current_small and prev_small and not_inflection
                     if converged:
@@ -499,9 +526,9 @@ class scHPF(BaseEstimator):
 
                     # getting worse, and has been for better_than_n_ago checks
                     # (don't waste time on a bad run)
-                    if len(self.loss) > self.better_than_n_ago \
+                    if len(loss) > self.better_than_n_ago \
                             and self.better_than_n_ago:
-                        nprev = self.loss[-self.better_than_n_ago]
+                        nprev = loss[-self.better_than_n_ago]
                         worse_than_n_ago = np.abs(nprev) < np.abs(curr)
                         getting_worse = np.abs(prev) < np.abs(curr)
                         if worse_than_n_ago and getting_worse:
@@ -514,7 +541,7 @@ class scHPF(BaseEstimator):
             if t >= self.max_iter:
                 break
 
-        return (bp, dp, xi, eta, theta, beta)
+        return (bp, dp, xi, eta, theta, beta, loss)
 
 
     def _setup(self, X, freeze_genes=False, reinit=True, clip=True):
@@ -617,7 +644,6 @@ def run_trials(X, nfactors,
         better_than_n_ago=5,
         dtype=np.float64,
         verbose=True,
-        validation_data=None
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -645,8 +671,6 @@ def run_trials(X, nfactors,
         Stop condition if loss is getting worse.  Stops training if loss
         is worse than `better_than_n_ago`*`check_freq` training steps
         ago and getting worse.
-    validation_data: coo_matrix, (optional, default None)
-        validation data, train data used to assess convergence if not given
     """
     ngenes = X.shape[1]
     if ngenes >= 20000:
@@ -664,7 +688,7 @@ def run_trials(X, nfactors,
                     better_than_n_ago=better_than_n_ago,
                     verbose=verbose, dtype=dtype,
                     )
-        model.fit(X, validation_data=validation_data)
+        model.fit(X)
 
         loss = model.loss[-1]
         if loss < best_loss:
@@ -678,3 +702,8 @@ def run_trials(X, nfactors,
             print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
     return best_model
+
+
+def project_withheld_cells(vcells, nfactors, a, ap, c, cp, dp, eta, beta):
+    withheld_model = scHPF(nfactors=nfactors,
+            a=a, ap=ap, c=c, cp=cp, dp=dp, eta=eta, beta=beta)
