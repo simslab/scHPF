@@ -54,7 +54,7 @@ For whitespace-delimited UMI-count files, filtering is performed using the input
 #### Running the prep command
 To preprocess genome-wide UMI counts for a typical run, use the command:
 ```
-scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m m -w GENE_WHITELIST
+scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 5 -w GENE_WHITELIST
 ```
 As written, the command formats data for training and only includes genes that are:
 - on the whitelist (eg protein coding) and 
