@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 
 from schpf import scHPF
 from schpf import load_model, save_model, run_trials
-from schpf.preprocessing import load_and_filter
+from schpf.preprocessing import load_and_filter, load_coo
 
 def _parser():
     parser = argparse.ArgumentParser()
@@ -157,7 +157,7 @@ if __name__=='__main__':
     elif args.cmd == 'train':
         # load data
         print( 'Loading data......' )
-        load_fnc = mmread if args.input.endswith('.mtx') else pp.load_coo
+        load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
         if args.validation is not None:
             vdata = load_fnc(args.validation)
