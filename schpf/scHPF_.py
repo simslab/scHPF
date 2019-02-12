@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import functools
 from copy import deepcopy
 from warnings import warn
 
@@ -12,7 +13,6 @@ from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
-import schpf.loss as loss_fnc
 
 
 class HPF_Gamma(object):
@@ -267,7 +267,7 @@ class scHPF(BaseEstimator):
         """
         theta = self.theta if theta is None else theta
         beta = self.beta if beta is None else beta
-        return loss_fnc.pois_llh_pointwise(X=X, theta=theta, beta=beta)
+        return pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
 
     def mean_negative_pois_llh(X, theta=None, beta=None, **kwargs):
@@ -276,7 +276,7 @@ class scHPF(BaseEstimator):
         """
         theta = self.theta if theta is None else theta
         beta = self.beta if beta is None else beta
-        return loss_fnc.mean_negative_pois_llh(X=X, theta=theta, beta=beta)
+        return mean_negative_pois_llh(X=X, theta=theta, beta=beta)
 
 
     def fit(self, X, **params):
@@ -344,38 +344,6 @@ class scHPF(BaseEstimator):
             new_scHPF.xi = xi
             new_scHPF.theta = theta
             return new_scHPF
-
-
-    def save(self, file_name):
-        """Save model to (joblib) file
-
-        Serialize scHPF model as a joblib file.  Joblib is simillar to pickle,
-        but preferable for objects with many numpy arrays
-
-        Parameters
-        ----------
-        file_name : str
-            Name of file to save model to
-        """
-        msg = 'scHPF.save() is deprecated. Instead, use save_model in the '
-        msg+= 'schpf module.'
-        warn(msg, DeprecationWarning)
-        joblib.dump(model, file_name)
-
-
-    @staticmethod
-    def load(file_name):
-        """Load a model from a joblib file
-
-        Parameters
-        ----------
-        file_name : str
-            Joblib file containing a saved scHPF model
-        """
-        msg = 'scHPF.load(file) is deprecated. Instead, use load_model in the '
-        msg+= 'schpf module.'
-        warn(msg, DeprecationWarning)
-        return joblib.load(file_name)
 
 
     def _score(self, capacity, loading):
@@ -450,8 +418,8 @@ class scHPF(BaseEstimator):
         # setup loss function as mean negative llh of nonzero training data
         # if the loss function is not given
         if loss_function is None:
-            loss_function = loss_fnc.get_loss_fnc_for_data(
-                    loss_fnc.mean_negative_pois_llh, X)
+            loss_function = loss_function_for_data(
+                    mean_negative_pois_llh, X)
 
         ## init
         loss, pct_change = [], []
@@ -704,6 +672,149 @@ def run_trials(X, nfactors,
     return best_model
 
 
-def project_withheld_cells(vcells, nfactors, a, ap, c, cp, dp, eta, beta):
-    withheld_model = scHPF(nfactors=nfactors,
-            a=a, ap=ap, c=c, cp=cp, dp=dp, eta=eta, beta=beta)
+
+"""
+Loss functions and higher order functions that return loss functions for a
+given dataset
+
+Annoyance
+---------
+I would love to put everything below in a separate file but there's some weird
+import recursion that I can't figure out unless I pass
+get_projection_loss_function an scHPF object rather than creating it within
+the method, (which I do not want to do).
+"""
+
+### Higher order loss functions
+
+def loss_function_for_data(loss_function, X):
+    """ Get a loss function for a fixed dataset
+
+    Parameters
+    ----------
+    loss_function : function
+        The loss function to use.  The data parameter for the function must
+        be `X`
+    X : coo_matrix
+        coo_matrix of data to apply loss function to
+
+    Returns
+    -------
+    fixed_data_loss_function : function
+        A loss function which takes all the same parameters as the input
+        `loss_function`, except for the data parameter `X` which is fixed
+    """
+    return functools.partial(loss_function, X=X)
+
+
+def get_projection_loss_function(loss_function, X, *,
+        a, ap, c, cp, dp, eta, beta,
+        model_kwargs={}, proj_kwargs={},
+        **kwargs):
+    """ Project new data onto an existing model and calculate loss from it
+
+    Parameters
+    ----------
+    loss_function : function
+        the loss function to use on the projected data
+    X : coo_matrix
+        Data to project onto the existing model.  Can have an arbitrary number
+        of rows (cells) > 0, but must have the same number of columns (genes)
+        as the existing model
+    a : int
+        hyperparameter `a` in the existing model
+    ap : int
+        hyperparameter `ap` in the existing model
+    c : int
+        hyperparameter `c` in the existing model
+    cp : int
+        hyperparameter `cp` in the existing model
+    dp : int
+        hyperparameter `dp` in the existing model
+    eta : HPF_Gamma
+        variational distribution for eta in the existing model
+    beta : HPF_Gamma
+        variational distribution for beta in the existing model
+
+    Returns
+    -------
+    projection_loss_function : function
+        A function which takes `a`, `ap`, `c`, `cp`, `dp`, `eta`, and `beta`
+        for an scHPF model, projects a fixed dataset onto it, and takes the
+        loss (using a fixed function) with respect to both the model and the
+        data's projection.
+    """
+    def projection_loss_function(*, a, ap, c, cp, dp, eta, beta, **kwargs):
+        assert eta.vi_shape.shape[0] == beta.vi_shape[0]
+
+        nfactors = beta.vi_shape[1]
+        model = scHPF(nfactors=nfactors, a=a, ap=ap, c=c, cp=cp, dp=dp,
+                    eta=eta, beta=beta, **model_kwargs)
+        model.project(X, replace=True, **proj_kwargs)
+
+        return loss_function(X, a=model.a, ap=model.ap, bp=model.bp,
+                c=model.c, cp=model.cp, dp=model.dp, xi=model.xi,
+                eta=model.eta, theta=model.theta, beta=model.beta)
+
+    return projection_loss_function
+
+
+#### Loss functions
+
+def pois_llh_pointwise(X, *, theta, beta, **kwargs):
+    """Poisson log-likelihood for each nonzero entry
+
+    Parameters
+    ----------
+    X: coo_matrix
+        Data to compute Poisson log likelihood of. Assumed to be nonzero.
+    theta : HPF_Gamma
+    beta : HPF_Gamma
+    **kwargs : dict, optional
+        extra arguments not used in this loss function
+
+    Returns
+    -------
+    llh: ndarray
+
+
+    Note
+    ----
+    Like all loss functions in this module, all parameters except from data
+    must be passed to the function as a keyword argument, and the function
+    will accept unused keyword args.
+    """
+    try:
+        llh = compute_pois_llh(X.data, X.row, X.col,
+                                theta.vi_shape, theta.vi_rate,
+                                beta.vi_shape, beta.vi_rate)
+    except NameError:
+        e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
+        llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
+    return llh
+
+
+def mean_negative_pois_llh(X, *, theta, beta, **kwargs):
+    """Mean Poisson log-likelihood for each nonzero entry
+
+    Parameters
+    ----------
+    X: coo_matrix
+        Data to compute Poisson log likelihood of. Assumed to be nonzero.
+    theta : HPF_Gamma
+    beta : HPF_Gamma
+    **kwargs : dict, optional
+        extra arguments not used in this loss function
+
+    Returns
+    -------
+    llh: ndarray
+
+
+    Note
+    ----
+    Like all loss functions in this module, all parameters except from data
+    must be passed to the function as a keyword argument, and the function
+    will accept unused keyword args.
+    """
+    return np.mean( -pois_llh_pointwise(X=X, theta=theta, beta=beta) )
