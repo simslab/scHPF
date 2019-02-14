@@ -27,8 +27,12 @@ def data():
 
 # TODO make these actual unit tests by making distributions from scratch
 @pytest.fixture(params=[np.float64, np.float32])
-def model(request, data):
+def model_uninit(request):
     model = scHPF(N_FACTORS, dtype=request.param)
-    model._initialize(data)
     return model
 
+
+@pytest.fixture()
+def model(model_uninit, data):
+    model_uninit._initialize(data)
+    return model_uninit
