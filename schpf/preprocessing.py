@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import warnings
 import numpy as np
 from scipy.sparse import coo_matrix
 
@@ -194,6 +195,65 @@ def genelist_mask(candidates, genelist, whitelist=True, split_on_dot=True):
         mask = ~candidates.isin(genelist)
 
     return mask.values
+
+
+def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5):
+    """Randomly select cells, potentially accounting for groups
+
+    Parameters
+    ----------
+    choices : ndarray or int
+        Indices of cells to choose from.  If int is give, indices assumend
+        to be np.arange(`choices`)
+    nselect : int
+        number of indices to return
+    group_ids : ndarray, optional
+        Group ids of cells.  len(`group_ids`) must == `choices` if `choices`
+        is an int, and == len(`choices`) otherwise.  If `group_ids` is given,
+        selected cells will be distributed approximately evenly over the
+        labels under the constraint that at most floor(group_size *
+        `max_group_frac`) can be selected from a group.
+    max_group_frac : float, optional , default 0.6
+        If `group_ids` given, the maximum fraction of cells in a group that
+        can be selected.
+    """
+    if isinstance(choices, int):
+        choices = np.arange(choices)
+
+    if group_ids is None:
+        return np.random.choice(choices, nselect, replace=False)
+    else:
+        label, remaining = np.unique(group_ids, return_counts=True)
+        constraint = np.floor( remaining * max_group_frac ).astype(int)
+
+        selected, n_remain = [], nselect
+        # while unconstrained cells left and more requested
+        while np.sum(constraint) > 0 and n_remain > 0:
+            # calculate goals given remaining cells to select and
+            # unconstrained cells left
+            weights = (constraint > 0) / (constraint > 0).sum()
+            goal = np.random.multinomial(n_remain, weights)
+            # for each group
+            for i in range(len(remaining)):
+                # if there are unconstrained cells left in the group
+                if constraint[i] > 0:
+                    my_nchoose = min(goal[i], constraint[i])
+                    my_choices = np.setdiff1d(choices[group_ids == label[i]],
+                            selected)
+                    # select the cells
+                    chosen = np.random.choice(my_choices, my_nchoose,
+                            replace=False)
+                    selected.extend(list(chosen))
+                    # update constraint
+                    constraint[i] -= my_nchoose
+                    n_remain -= my_nchoose
+        if n_remain > 0:
+            msg = "Could not select {} cells".format(nselect)
+            msg += " with given group_ids under constraint max_group_frac"
+            msg += "={}. {} cells selected.".format(max_group_frac, n_remain)
+            warnings.warn(msg, UserWarning)
+
+        return selected
 
 
 def load_and_filter(infile, min_cells, whitelist='', blacklist='',

@@ -95,6 +95,39 @@ def test_genelist_mask(protein_coding, exp_genes):
                        ~shared_gene)
 
 
+def test_choose_validation_cells():
+    # int for choices
+    assert_equal(len(prep.choose_validation_cells(20, 10)),  10)
+    # array of choices
+    assert_equal(len(prep.choose_validation_cells(np.arange(20), 10)),  10)
+
+    # test picks one from a group
+    group_ids = np.array([0] * 100 + [1,1])
+    idx = prep.choose_validation_cells(102, 10, group_ids=group_ids,
+            max_group_frac=0.5)
+    assert (100 in idx) or (101 in idx)
+    assert_equal(len(idx), 10)
+
+    # test doesn't pick when can't under constraint
+    group_ids = np.array([0] * 18 + [1,1])
+    idx = prep.choose_validation_cells(20, 5, group_ids=group_ids,
+            max_group_frac=0.4)
+    assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
+    assert_equal(len(idx), 5) # but still have 5 items
+
+
+    # test doesn't pick more than it can under constraint
+    group_ids = np.array([0] * 18 + [1,1])
+    idx = prep.choose_validation_cells(20, 5, group_ids=group_ids,
+            max_group_frac=0.25)
+    assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
+    assert_equal(len(idx), 4) # should have floor(0.25*18) items
+    with pytest.warns(UserWarning) as record:
+        idx = prep.choose_validation_cells(20, 5, group_ids=group_ids,
+                max_group_frac=0.25)
+    assert len(record) == 1
+
+
 def test_load_and_filter(protein_coding, blacklist):
     filtered_m2, genes_m2 = prep.load_and_filter(TXT, min_cells=2,
             whitelist=PROTEIN_CODING, blacklist=BLIST)
