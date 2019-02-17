@@ -3,8 +3,9 @@
 import warnings
 import numpy as np
 from scipy.sparse import coo_matrix
-
 import pandas as pd
+
+from schpf.util import split_coo_rows
 
 
 def load_coo(filename):
@@ -256,6 +257,36 @@ def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5
         return selected
 
 
+def split_validation_cells(X, nselect, group_id_file=''):
+    """
+    Parameters
+    ----------
+    X : coo_matrix
+        Matrix to select validation cells from
+    nselect : int
+        Number of cells to select
+    group_id_file : str, optional
+        File containing group ids.  Should be loadable with np.loadtxt
+
+    Returns
+    -------
+    Xtrain : coo_matrix
+        X with validation rows removed
+    Xvalidation : coo_matrix
+        Selected rows from X
+    validation_ix : ndarray
+        Indexes of selected rows in the intput matrix `X`
+    """
+    if group_id_file is not None and len(group_id_file):
+        group_ids = np.loadtxt(group_id_file)
+    else:
+        group_ids = None
+
+    selected_ids = choose_validation_cells(X, nselect, group_ids)
+    Xvalidation, Xtrain =  split_coo_rows(X, selected_ids)
+    return Xtrain, Xvalidation, selected_ids
+
+
 def load_and_filter(infile, min_cells, whitelist='', blacklist='',
         filter_by_gene_name=False, no_split_on_dot=False, verbose=True):
     """ Composite of loading and filtering intended for use by CLI
@@ -267,7 +298,7 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
         (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom file with at
         least one of the row attributes `Accession` or `Gene`, where `Accession`
         is an ENSEMBL id and `Gene` is the name.
-    min_cells : float
+    min_cells : float or int
         Minimum number of cells in which we must observe at least one transcript
         of a gene for the gene to pass filtering. If 0 <`min_cells`< 1, sets
         threshold to be `min_cells` * ncells, rounded to the nearest integer.
