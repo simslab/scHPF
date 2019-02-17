@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import functools
 from copy import deepcopy
 from warnings import warn
 
@@ -13,6 +12,7 @@ from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
+import schpf.loss as ls
 
 
 class HPF_Gamma(object):
@@ -267,7 +267,7 @@ class scHPF(BaseEstimator):
         """
         theta = self.theta if theta is None else theta
         beta = self.beta if beta is None else beta
-        return pois_llh_pointwise(X=X, theta=theta, beta=beta)
+        return ls.pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
 
     def mean_negative_pois_llh(X, theta=None, beta=None, **kwargs):
@@ -276,10 +276,10 @@ class scHPF(BaseEstimator):
         """
         theta = self.theta if theta is None else theta
         beta = self.beta if beta is None else beta
-        return mean_negative_pois_llh(X=X, theta=theta, beta=beta)
+        return ls.mean_negative_pois_llh(X=X, theta=theta, beta=beta)
 
 
-    def fit(self, X, **params):
+    def fit(self, X, **kwargs):
         """Fit an scHPF model
 
         Parameters
@@ -290,7 +290,7 @@ class scHPF(BaseEstimator):
             coo_matrix, which should have the same shape as
         """
         (bp, dp, xi, eta, theta, beta, loss) = self._fit(
-                X, **params)
+                X, **kwargs)
         self.bp = bp
         self.dp = dp
         self.xi = xi
@@ -371,14 +371,15 @@ class scHPF(BaseEstimator):
             Function to use for loss, which is assumed to be nonzero and
             decrease with improvement. Must accept hyperparameters a, ap,
             bp, c, cp, and dp and the variational distributions for xi, eta,
-            theta, and beta even if only some of these values are used. Should
-            have an internal reference to any data used (_fit will not pass it
-            any data). If `loss_function` is not given/None, the mean negative
-            log likelihood of nonzero values in training data `X` is used.
+            theta, and beta even if only some of these values are used.
+            Should have an internal reference to any data used (_fit will
+            not pass it any data). If `loss_function` is not given or equal
+            to None, the mean negative log likelihood of nonzero values in
+            training data `X` is used.
         checkstep_function : function  (optional, default None)
-            A function that takes arguments bp, dp, xi, eta, theta, beta, and
-            t and, if given, is called at check_interval. Intended use is
-            to check additional stats during training, potentially with
+            A function that takes arguments bp, dp, xi, eta, theta, beta,
+            and t and, if given, is called at check_interval. Intended use
+            is to check additional stats during training, potentially with
             hardcoded data, but is unrestricted.  Use at own risk.
         verbose: bool (optional, default None)
             If not None, overrides self.verbose
@@ -418,8 +419,8 @@ class scHPF(BaseEstimator):
         # setup loss function as mean negative llh of nonzero training data
         # if the loss function is not given
         if loss_function is None:
-            loss_function = loss_function_for_data(
-                    mean_negative_pois_llh, X)
+            loss_function = ls.loss_function_for_data(
+                    ls.mean_negative_pois_llh, X)
 
         ## init
         loss, pct_change = [], []
@@ -503,7 +504,6 @@ class scHPF(BaseEstimator):
                             if verbose:
                                 print('getting worse break')
                             break
-
 
             # TODO message or warning or something
             if t >= self.max_iter:
@@ -612,6 +612,9 @@ def run_trials(X, nfactors,
         better_than_n_ago=5,
         dtype=np.float64,
         verbose=True,
+        vcells = None,
+        vX = None,
+        loss_function=None
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -639,6 +642,26 @@ def run_trials(X, nfactors,
         Stop condition if loss is getting worse.  Stops training if loss
         is worse than `better_than_n_ago`*`check_freq` training steps
         ago and getting worse.
+    dtype : datatype, optional, default np.float64
+        np.float64 or np.float32
+    verbose: bool, optional, default True
+        verbose
+    vcells : coo_matrix, optional, default None
+        cells to use in a validation loss function
+    vX : coo_matrix, optional, default None
+        nonzero entries from the cells in vX
+    loss_function : function, optional, default None
+        A loss function that accepts data, model variational parameters,
+        and model hyperparameters.  Note this is distinct from the
+        `loss_function` argument in scHPF._fit (called by scHPF.fit and
+        scHPF.project), which assumes a fixed reference to data is included
+        in the function and *does not* accept data as an argument.
+
+
+    Returns
+    -------
+    best_model: scHPF
+        best model
     """
     ngenes = X.shape[1]
     if ngenes >= 20000:
@@ -648,6 +671,21 @@ def run_trials(X, nfactors,
         msg += ' genes only.'
         print(msg)
 
+    # setup the loss function
+    if loss_function is None:
+        loss_function = ls.mean_negative_pois_llh
+    if vcells is not None:
+        assert vcells.shape[1] == X.shape[1]
+        data_loss_function = ls.get_projection_loss_function(
+                loss_function, vcells)
+    else:
+        if vX is not None:
+            assert vX.shape == X.shape
+        else:
+            vX = X
+        data_loss_function = ls.loss_function_for_data(loss_function, vX)
+
+    # run trials
     best_loss, best_model, best_t = np.finfo(np.float64).max, None, None
     for t in range(ntrials):
         model = scHPF(nfactors=nfactors,
@@ -655,6 +693,7 @@ def run_trials(X, nfactors,
                     check_freq=check_freq, epsilon=epsilon,
                     better_than_n_ago=better_than_n_ago,
                     verbose=verbose, dtype=dtype,
+                    loss_function = data_loss_function
                     )
         model.fit(X)
 
@@ -670,151 +709,3 @@ def run_trials(X, nfactors,
             print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
     return best_model
-
-
-
-"""
-Loss functions and higher order functions that return loss functions for a
-given dataset
-
-Annoyance
----------
-I would love to put everything below in a separate file but there's some weird
-import recursion that I can't figure out unless I pass
-get_projection_loss_function an scHPF object rather than creating it within
-the method, (which I do not want to do).
-"""
-
-### Higher order loss functions
-
-def loss_function_for_data(loss_function, X):
-    """ Get a loss function for a fixed dataset
-
-    Parameters
-    ----------
-    loss_function : function
-        The loss function to use.  The data parameter for the function must
-        be `X`
-    X : coo_matrix
-        coo_matrix of data to apply loss function to
-
-    Returns
-    -------
-    fixed_data_loss_function : function
-        A loss function which takes all the same parameters as the input
-        `loss_function`, except for the data parameter `X` which is fixed
-    """
-    return functools.partial(loss_function, X=X)
-
-
-def get_projection_loss_function(loss_function, X, *,
-        a, ap, c, cp, dp, eta, beta,
-        model_kwargs={}, proj_kwargs={},
-        **kwargs):
-    """ Project new data onto an existing model and calculate loss from it
-
-    Parameters
-    ----------
-    loss_function : function
-        the loss function to use on the projected data
-    X : coo_matrix
-        Data to project onto the existing model.  Can have an arbitrary number
-        of rows (cells) > 0, but must have the same number of columns (genes)
-        as the existing model
-    a : int
-        hyperparameter `a` in the existing model
-    ap : int
-        hyperparameter `ap` in the existing model
-    c : int
-        hyperparameter `c` in the existing model
-    cp : int
-        hyperparameter `cp` in the existing model
-    dp : int
-        hyperparameter `dp` in the existing model
-    eta : HPF_Gamma
-        variational distribution for eta in the existing model
-    beta : HPF_Gamma
-        variational distribution for beta in the existing model
-
-    Returns
-    -------
-    projection_loss_function : function
-        A function which takes `a`, `ap`, `c`, `cp`, `dp`, `eta`, and `beta`
-        for an scHPF model, projects a fixed dataset onto it, and takes the
-        loss (using a fixed function) with respect to both the model and the
-        data's projection.
-    """
-    def projection_loss_function(*, a, ap, c, cp, dp, eta, beta, **kwargs):
-        assert eta.vi_shape.shape[0] == beta.vi_shape[0]
-
-        nfactors = beta.vi_shape[1]
-        model = scHPF(nfactors=nfactors, a=a, ap=ap, c=c, cp=cp, dp=dp,
-                    eta=eta, beta=beta, **model_kwargs)
-        model.project(X, replace=True, **proj_kwargs)
-
-        return loss_function(X, a=model.a, ap=model.ap, bp=model.bp,
-                c=model.c, cp=model.cp, dp=model.dp, xi=model.xi,
-                eta=model.eta, theta=model.theta, beta=model.beta)
-
-    return projection_loss_function
-
-
-#### Loss functions
-
-def pois_llh_pointwise(X, *, theta, beta, **kwargs):
-    """Poisson log-likelihood for each nonzero entry
-
-    Parameters
-    ----------
-    X: coo_matrix
-        Data to compute Poisson log likelihood of. Assumed to be nonzero.
-    theta : HPF_Gamma
-    beta : HPF_Gamma
-    **kwargs : dict, optional
-        extra arguments not used in this loss function
-
-    Returns
-    -------
-    llh: ndarray
-
-
-    Note
-    ----
-    Like all loss functions in this module, all parameters except from data
-    must be passed to the function as a keyword argument, and the function
-    will accept unused keyword args.
-    """
-    try:
-        llh = compute_pois_llh(X.data, X.row, X.col,
-                                theta.vi_shape, theta.vi_rate,
-                                beta.vi_shape, beta.vi_rate)
-    except NameError:
-        e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
-        llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
-    return llh
-
-
-def mean_negative_pois_llh(X, *, theta, beta, **kwargs):
-    """Mean Poisson log-likelihood for each nonzero entry
-
-    Parameters
-    ----------
-    X: coo_matrix
-        Data to compute Poisson log likelihood of. Assumed to be nonzero.
-    theta : HPF_Gamma
-    beta : HPF_Gamma
-    **kwargs : dict, optional
-        extra arguments not used in this loss function
-
-    Returns
-    -------
-    llh: ndarray
-
-
-    Note
-    ----
-    Like all loss functions in this module, all parameters except from data
-    must be passed to the function as a keyword argument, and the function
-    will accept unused keyword args.
-    """
-    return np.mean( -pois_llh_pointwise(X=X, theta=theta, beta=beta) )

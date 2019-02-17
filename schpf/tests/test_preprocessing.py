@@ -105,7 +105,7 @@ def test_choose_validation_cells():
     group_ids = np.array([0] * 100 + [1,1])
     idx = prep.choose_validation_cells(102, 10, group_ids=group_ids,
             max_group_frac=0.5)
-    assert (100 in idx) or (101 in idx)
+    assert (100 in idx) ^ (101 in idx) #xor
     assert_equal(len(idx), 10)
 
     # test doesn't pick when can't under constraint
