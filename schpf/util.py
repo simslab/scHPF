@@ -37,8 +37,8 @@ def max_pairwise(gene_scores, ntop=200, second_greatest=False):
                 continue
             overlap = len(np.intersect1d(tops[:,i], tops[:,j]))
             if overlap > max_pairwise:
-                max_pairwise = overlap
                 last_max = max_pairwise
+                max_pairwise = overlap
             elif overlap > last_max:
                 last_max = overlap
 
