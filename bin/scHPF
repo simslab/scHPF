@@ -200,6 +200,11 @@ if __name__=='__main__':
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
 
+        print('Calculating maximum pairwise overlaps......')
+        table = schpf.max_pairwise_table(gene_score, 
+                ntop_list=[50,100,150,200,250,300])
+        table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
+
         if args.genefile is not None:
             print('Ranking genes......')
             # load and format gene file
