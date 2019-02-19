@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.testing import assert_equal
 
-from schpf import max_pairwise
+from schpf import max_pairwise, max_pairwise_table
 
 
 def test_overlap():
@@ -19,5 +19,29 @@ def test_overlap():
             [0.92531954, 0.23635494, 0.29327799, 0.40788107, 0.95974159],
             [0.42295065, 0.5725946 , 0.59206089, 0.76534785, 0.77961214]])
     assert_equal(max_pairwise(X, ntop=3)[0], 2)
-    assert_equal(max_pairwise(X, ntop=3, second_greatest=True)[0], 1)
+    assert_equal(max_pairwise(X, ntop=3, second_greatest=True)[0], 2)
+
+
+def test_overlap_table():
+    X = np.array([
+            [13, 11,  2, 13,  5, 12,  5],
+            [ 8,  6,  0,  6,  8, 14,  6],
+            [11, 13, 11, 11, 14,  8, 10],
+            [ 1, 12,  8, 14,  7,  1,  3],
+            [ 0,  1, 10, 12,  3,  5,  2],
+            [ 3,  2,  6,  5,  9,  2,  1],
+            [ 9,  3,  7,  2,  4,  3,  7],
+            [ 4,  4, 12,  7, 13, 10,  0],
+            [ 7,  0,  9,  8,  6,  6, 12],
+            [14, 14, 13,  9, 10,  9, 14],
+            [ 2,  9,  4, 10, 12,  7, 13],
+            [ 6, 10,  3,  1,  0, 11,  4],
+            [12,  8,  1,  0,  2, 13,  9],
+            [ 5,  7, 14,  3, 11,  4, 11],
+            [10,  5,  5,  4,  1,  0,  8] ])
+    ntop_list = [1,2,3,4,5,6]
+    table = max_pairwise_table(X, ntop_list=ntop_list)
+    assert np.all(table.max_overlap >= table.max2_overlap)
+    assert np.all(np.diff(table.max_overlap.values) >= 0 )
+    assert np.all(np.diff(table.max2_overlap.values) >= 0 )
 

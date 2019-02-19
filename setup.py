@@ -2,7 +2,7 @@
 
 from setuptools import find_packages, setup
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 requires = ['scikit-learn',
             'numba >=0.35, <=0.40',

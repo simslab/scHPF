@@ -9,7 +9,7 @@ from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
 from schpf import scHPF
-from schpf import load_model, save_model, run_trials
+from schpf import load_model, save_model, run_trials, max_pairwise_table
 from schpf.preprocessing import load_and_filter, load_coo
 
 def _parser():
@@ -46,6 +46,7 @@ def _parser():
             'ids to exclude, and second column is the corresponding gene name. '
             'Only performed if file given. Genes on the blacklist are '
             'excluded even if they are also on the whitelist. Optional.')
+    prep.add_argument('-nvc', '--n-validation-cells', default=None)
     prep.add_argument('--filter-by-gene-name', default=False, 
             action='store_true', help='Use gene name rather than ENSEMBL '
             'id to filter (with whitelist or blacklist).  Useful for '
@@ -145,7 +146,7 @@ if __name__=='__main__':
                 whitelist=args.whitelist, 
                 blacklist=args.blacklist, 
                 filter_by_gene_name=args.filter_by_gene_name,
-                no_split_on_dot=args.split_on_dot)
+                no_split_on_dot=args.no_split_on_dot)
 
         print('Writing filtered data to file......')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
@@ -199,6 +200,11 @@ if __name__=='__main__':
         outprefix = '{}/{}'.format(args.outdir, prefix)
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
+
+        print('Calculating maximum pairwise overlaps......')
+        table = max_pairwise_table(gene_score, 
+                ntop_list=[50,100,150,200,250,300])
+        table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
 
         if args.genefile is not None:
             print('Ranking genes......')
