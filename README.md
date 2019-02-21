@@ -81,6 +81,9 @@ scHPF train -i TRAIN_FILE -o OUTDIR -p PREFIX -k 7 -t 5
 ```
 This command performs approximate Bayesian inference on scHPF with, in this instance, seven factors and five different random initializations. scHPF will automatically select the trial with the highest log-likelihood, and save the model in the `OUTDIR` in a serialized [joblib](https://scikit-learn.org/stable/modules/model_persistence.html) file. 
 
+##### Note
+If you get an error like "Inconsistency detected by ld.so: dl-version.c: 224: \_dl_check_map_versions" and are running numba 0.40.0, try downgrading to 0.39.0
+
 More options and details for training can be viewed with 
 ```
 scHPF train -h
