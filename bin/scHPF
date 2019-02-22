@@ -46,7 +46,6 @@ def _parser():
             'ids to exclude, and second column is the corresponding gene name. '
             'Only performed if file given. Genes on the blacklist are '
             'excluded even if they are also on the whitelist. Optional.')
-    prep.add_argument('-nvc', '--n-validation-cells', default=None)
     prep.add_argument('--filter-by-gene-name', default=False, 
             action='store_true', help='Use gene name rather than ENSEMBL '
             'id to filter (with whitelist or blacklist).  Useful for '
