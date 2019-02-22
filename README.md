@@ -1,7 +1,9 @@
 # Single-cell Hierarchical Poisson Factorization
 
 ## About
-scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
+scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). We find that scHPF’s sparse low-dimensional representations, non-negativity, and explicit modeling of variable sparsity across genes and cells produce highly interpretable factors.
+
+Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper at Molecular Systems Biology](http://msb.embopress.org/content/15/2/e8557.full.pdf).
 
 ## Installation
 ### Environment & Dependencies
@@ -108,15 +110,18 @@ Coming soon. This implementation has a scikit-learn-like interface.
 ##  Citation
 
 ```
-@article {biorxiv2018scHPF,
-    author = {Levitin, Hanna Mendes and Yuan, Jinzhou and Cheng, Yim Ling and Ruiz, Francisco J.R. and Bush, Erin C. and Bruce, Jeffrey N. and Canoll, Peter and Iavarone, Antonio and Lasorella, Anna and Blei, David M. and Sims, Peter A.},
-    title = {De novo Gene Signature Identification from Single-Cell RNA-Seq with Hierarchical Poisson Factorization},
-    year = {2018},
-    doi = {10.1101/367003},
-    publisher = {Cold Spring Harbor Laboratory},
-    URL = {https://www.biorxiv.org/content/early/2018/07/11/367003},
-    eprint = {https://www.biorxiv.org/content/early/2018/07/11/367003.full.pdf},
-    journal = {bioRxiv}
+@article {msb2019scHPF,
+	author = {Levitin, Hanna Mendes and Yuan, Jinzhou and Cheng, Yim Ling and Ruiz, Francisco JR and Bush, Erin C and Bruce, Jeffrey N and Canoll, Peter and Iavarone, Antonio and Lasorella, Anna and Blei, David M and Sims, Peter A},
+	title = {De novo gene signature identification from single-cell RNA-seq with hierarchical Poisson factorization},
+	volume = {15},
+	number = {2},
+	elocation-id = {e8557},
+	year = {2019},
+	doi = {10.15252/msb.20188557},
+	publisher = {EMBO Press},
+	URL = {http://msb.embopress.org/content/15/2/e8557},
+	eprint = {http://msb.embopress.org/content/15/2/e8557.full.pdf},
+	journal = {Molecular Systems Biology}
 }
 ```
 
