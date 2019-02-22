@@ -1,9 +1,5 @@
 # Single-cell Hierarchical Poisson Factorization
 
-## Updates!
-
-scHPF has a new, improved implementation in numba that includes both a CLI and a scikit-learn-like API. It is substantially faster and more memory-efficient than Tensorflow scHPF, especially when many virtual CPUs are available. Numba scHPF is not currently back-compatible with trained models from Tensorflow scHPF, but I will be fixing this very soon. 
-
 ## About
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). Algorithmic details, benchmarking against alternative methods, and scHPF's application to a spatially sampled high-grade glioma can be found in our [paper on biorXiv](https://www.biorxiv.org/content/early/2018/07/11/367003).
 
@@ -39,7 +35,7 @@ pip install .
 ## scHPF Command Line Interface (CLI) workflow
 ### Preprocessing
 #### Input file formats
-scHPF's prep command intakes a molecular count matrix for an scRNA-seq experiment and formats it for training.  We note that scHPF is specifically designed for scRNA-seq data with unique molecular identifiers (UMIs), and only takes integer molecular counts. 
+scHPF's prep command intakes a molecular count matrix for an scRNA-seq experiment and formats it for training. Note that scHPF is specifically designed for scRNA-seq data with unique molecular identifiers (UMIs), and only takes integer molecular counts. 
 
 scHPF prep currently accepts two input file formats:
 1. A whitespace-delimited matrix formatted like: <pre>ENSEMBL_ID  GENE_NAME  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre> The matrix should not have a header, but may be compressed with gzip or bzip2. 
@@ -47,9 +43,13 @@ scHPF prep currently accepts two input file formats:
 2. A loom file ([loompy.org](http://loompy.org/)). The loom file must have at least one of the row attributes `Accession` or `Gene`, where `Accession` is an ENSEMBL id and `Gene` is a gene name. 
 
 #### Filtering non-coding genes during preprocessing
-For ease of interpretation, we recommend restricting the scHPF model to protein-coding genes. The `-w`/`--whitelist` option enables this by removing all genes in the input data that are **not in** a two column, tab-delimited text file of ENSEMBL gene ids and names. Whitelists for human and mouse are provided in the [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources).
+We recommend restricting analysis to protein-coding genes. The `-w`/`--whitelist` option removes all genes in the input data that are **not in** a two column, tab-delimited text file of ENSEMBL gene ids and names. 
 
-For whitespace-delimited UMI-count files, filtering is performed using the input matrix's `ENSEMBL_ID` by default, but can be done with `GENE_NAME` using the `--filter-by-gene-name` flag. This is useful for data that does not include a gene id. For loom files, we filter the `Accession` row attribute against the whitelist's `ENSEMBLE_ID` if `Accession` is present in the loom's row attributes, and filter the `Gene` row attribute against the `GENE_NAME` in the whitelist otherwise. 
+Whitelists for human and mouse are provided in the [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources).
+
+*Filtering txt input details:* For whitespace-delimited UMI-count files, filtering is performed using the input matrix's `ENSEMBL_ID` by default, but can be done with `GENE_NAME` using the `--filter-by-gene-name` flag. This is useful for data that does not include a gene id. 
+
+*Filtering loom input details:* For loom files, we filter the `Accession` row attribute against the whitelist's `ENSEMBLE_ID` if `Accession` is present in the loom's row attributes, and filter the `Gene` row attribute against the `GENE_NAME` in the whitelist otherwise. 
 
 #### Running the prep command
 To preprocess genome-wide UMI counts for a typical run, use the command:
@@ -57,7 +57,7 @@ To preprocess genome-wide UMI counts for a typical run, use the command:
 scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 5 -w GENE_WHITELIST
 ```
 As written, the command formats data for training and only includes genes that are:
-- on the whitelist (eg protein coding) and 
+- on the whitelist (eg protein coding, see [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources)) and 
 - that we observe transcripts of in at least 5 cells. 
 
 
@@ -82,7 +82,7 @@ scHPF train -i TRAIN_FILE -o OUTDIR -p PREFIX -k 7 -t 5
 This command performs approximate Bayesian inference on scHPF with, in this instance, seven factors and five different random initializations. scHPF will automatically select the trial with the highest log-likelihood, and save the model in the `OUTDIR` in a serialized [joblib](https://scikit-learn.org/stable/modules/model_persistence.html) file. 
 
 ##### Note
-If you get an error like "Inconsistency detected by ld.so: dl-version.c: 224: \_dl_check_map_versions" and are running numba 0.40.0, try downgrading to 0.39.0
+If you get an error like *Inconsistency detected by ld.so: dl-version.c: 224: \_dl_check_map_versions* and are running numba 0.40.0, try downgrading to 0.39.0
 
 More options and details for training can be viewed with 
 ```
