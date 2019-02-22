@@ -22,7 +22,7 @@ def test_overlap():
             [0.92531954, 0.23635494, 0.29327799, 0.40788107, 0.95974159],
             [0.42295065, 0.5725946 , 0.59206089, 0.76534785, 0.77961214]])
     assert_equal(max_pairwise(X, ntop=3)[0], 2)
-    assert_equal(max_pairwise(X, ntop=3, second_greatest=True)[0], 2)
+    assert_equal(max_pairwise(X, ntop=3, second_greatest=True)[0], 1)
 
 
 def test_overlap_table():
@@ -45,6 +45,7 @@ def test_overlap_table():
     ntop_list = [1,2,3,4,5,6]
     table = max_pairwise_table(X, ntop_list=ntop_list)
     assert np.all(table.max_overlap >= table.max2_overlap)
+    assert np.any(table.max_overlap > table.max2_overlap)
     assert np.all(np.diff(table.max_overlap.values) >= 0 )
     assert np.all(np.diff(table.max2_overlap.values) >= 0 )
 
