@@ -107,7 +107,7 @@ class HPF_Gamma(object):
 
 
 class scHPF(BaseEstimator):
-    """HPF as described in ____
+    """scHPF as described in Levitin et al., Molecular Systems Biology 2019
 
     Parameters
     ----------
@@ -372,6 +372,22 @@ class scHPF(BaseEstimator):
 
 
     def _score(self, capacity, loading):
+        """Get the hierarchically normalized loadings which we call the cell
+        or gene score in the scHPF paper
+
+        Parameters
+        ----------
+        capacity : HPF_Gamma
+            xi or eta
+        loading : HPF_Gamma
+            theta or beta
+
+
+        Returns
+        -------
+        score : ndarray
+        """
+        assert(loading.vi_rate.shape[0] == capacity.vi_rate.shape[0])
         return loading.e_x * capacity.e_x[:,None]
 
 
@@ -389,7 +405,9 @@ class scHPF(BaseEstimator):
             Should we update gene variational distributions eta and beta
         reinit: bool, (optional, default True)
             Randomly initialize variational distributions even if they
-            already exist. Superseded by freeze_genes.
+            already exist. Superseded by freeze_genes. Does not affect
+            self.bp and self.dp which will only be set empirically if they
+            are None
         min_iter: int (optional, default None)
             Replaces self.min_iter if given.  Useful when projecting
             new data onto an existing scHPF model.
@@ -518,7 +536,33 @@ class scHPF(BaseEstimator):
 
 
     def _setup(self, X, freeze_genes=False, reinit=True, clip=True):
-        """Setup variational distributions"""
+        """Setup variational distributions
+
+        Parameters
+        ----------
+        X: coo_matrix
+            Data to fit
+        freeze_genes: bool, optional (Default: False)
+            Should we update gene variational distributions eta and beta
+        reinit: bool, optional (Default: True)
+            Randomly initialize variational distributions even if they
+            already exist. Superseded by freeze_genes. Does not affect
+            self.bp and self.dp (which will only be set empirically if
+            they are None)
+        clip : bool, optional (Default: True)
+            If empirically calculating dp and bp > 1000 * dp, clip dp to
+            bp / 1000.
+
+        Returns
+        -------
+        bp : float
+        dp : float
+        xi : HPF_Gamma
+        eta : HPF_Gamma
+        theta : HPF_Gamma
+        beta : HPF_Gamma
+
+        """
         # locals for convenience
         nfactors, (ncells, ngenes) = self.nfactors, X.shape
         a, ap, c, cp = self.a, self.ap, self.c, self.cp
@@ -570,7 +614,8 @@ class scHPF(BaseEstimator):
 
 
     def _initialize(self, X, freeze_genes=False):
-        """Shortcut to setup random distributions without fitting"""
+        """Shortcut to setup random distributions & set variables
+        """
         bp, dp, xi, eta, theta, beta = self._setup(X, freeze_genes,
                 reinit=True)
         self.bp = bp
@@ -588,6 +633,12 @@ def load_model(file_name):
     ----------
     file_name : str
         Joblib file containing a saved scHPF model
+
+
+    Returns
+    -------
+    model : scHPF
+        The scHPF model in the file
     """
     return joblib.load(file_name)
 
@@ -647,6 +698,13 @@ def run_trials(X, nfactors,
         ago and getting worse.
     validation_data: coo_matrix, (optional, default None)
         validation data, train data used to assess convergence if not given
+
+
+    Returns
+    -------
+    best_model : scHPF
+        The model with the best loss facter `ntrials` random initializations
+        and training runs
     """
     ngenes = X.shape[1]
     if ngenes >= 20000:
