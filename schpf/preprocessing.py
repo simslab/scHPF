@@ -87,7 +87,7 @@ def load_txt(filename,  ngene_cols=2):
     gene_cols = list(range(ngene_cols))
 
     if filename.endswith('.gz') or filename.endswith('.bz2'):
-        msg = '......'
+        msg = '.....'
         msg+= 'WARNING: Input file {} is compressed. '.format(filename)
         msg+= 'It may be faster to manually decompress before loading.'
         print(msg)
@@ -121,8 +121,8 @@ def load_txt(filename,  ngene_cols=2):
                 cols.extend(c)
                 values.extend(val)
 
-                if (g%5000 == 0) and (g!=0):
-                    print('      loaded {} genes for {} cells'.format(
+                if ((g+1)%10000 == 0) and (g!=0):
+                    print('\tloaded {} genes for {} cells'.format(
                         g+1, cell+1))
 
         ncells, ngenes = len(llist[ngene_cols:]), g+1
@@ -158,7 +158,7 @@ def min_cells_expressing_mask(counts, min_cells, verbose=True):
     if min_cells < 1 and min_cells > 0:
         min_cells_frac = min_cells
         min_cells = round(min_cells_frac * counts.shape[0])
-        msg = '......requiring {}% of cells = {} cells observed expressing for'
+        msg = '.....requiring {}% of cells = {} cells observed expressing for'
         msg += ' gene inclusion'
         print(msg.format(100 * min_cells_frac, min_cells))
     return counts.astype(bool).sum(axis=0).A[0,:] >= min_cells
@@ -214,16 +214,23 @@ def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5
         selected cells will be distributed approximately evenly over the
         labels under the constraint that at most floor(group_size *
         `max_group_frac`) can be selected from a group.
-    max_group_frac : float, optional , default 0.6
+    max_group_frac : float, optional (default: 0.5)
         If `group_ids` given, the maximum fraction of cells in a group that
         can be selected.
+
+    Returns
+    -------
+    selected_ix : ndarray
+        1d array of selected ids (sorted).
     """
     if isinstance(choices, int):
         choices = np.arange(choices)
 
     if group_ids is None:
-        return np.random.choice(choices, nselect, replace=False)
+        return np.sort(np.random.choice(choices, nselect, replace=False))
     else:
+        assert len(group_ids) == len(choices)
+
         label, remaining = np.unique(group_ids, return_counts=True)
         constraint = np.floor( remaining * max_group_frac ).astype(int)
 
@@ -233,7 +240,10 @@ def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5
             # calculate goals given remaining cells to select and
             # unconstrained cells left
             weights = (constraint > 0) / (constraint > 0).sum()
-            goal = np.random.multinomial(n_remain, weights)
+            goal_floor = np.floor(weights * n_remain).astype(int)
+            remainder = np.sum(np.ceil(weights * n_remain) - goal_floor
+                    ).astype(int)
+            goal = goal_floor + np.random.multinomial(remainder, weights)
             # for each group
             for i in range(len(remaining)):
                 # if there are unconstrained cells left in the group
@@ -254,11 +264,13 @@ def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5
             msg += "={}. {} cells selected.".format(max_group_frac, n_remain)
             warnings.warn(msg, UserWarning)
 
-        return selected
+        return np.sort(selected)
 
 
-def split_validation_cells(X, nselect, group_id_file=''):
-    """
+def split_validation_cells(X, nselect, group_id_file='', max_group_frac=0.5,
+        verbose=True):
+    """ Split train and validation cells, potentially accounting from groups
+
     Parameters
     ----------
     X : coo_matrix
@@ -267,6 +279,11 @@ def split_validation_cells(X, nselect, group_id_file=''):
         Number of cells to select
     group_id_file : str, optional
         File containing group ids.  Should be loadable with np.loadtxt
+    max_group_frac : float, optional (default: 0.5)
+        If `group_id_file` given, the maximum fraction of cells in a group that
+        can be selected.
+    verbose : bool, optional (default: True)
+        Verbose output
 
     Returns
     -------
@@ -277,12 +294,30 @@ def split_validation_cells(X, nselect, group_id_file=''):
     validation_ix : ndarray
         Indexes of selected rows in the intput matrix `X`
     """
+    # load groups
     if group_id_file is not None and len(group_id_file):
         group_ids = np.loadtxt(group_id_file)
     else:
         group_ids = None
 
-    selected_ids = choose_validation_cells(X, nselect, group_ids)
+    # select cells
+    selected_ids = choose_validation_cells(X.shape[0], nselect, group_ids)
+
+    # write a message
+    if verbose:
+        ncells = len(selected_ids)
+        msg = '.....{} cells selected'.format(ncells)
+        if group_ids is not None:
+            msg += ' ~~evenly from groups in {}'.format(group_id_file)
+            msg += ' under constraint max_group_frac={}'.format(max_group_frac)
+            msg += '\n\tGroup counts:'
+            ids, id_counts = np.unique(group_ids[selected_ids],
+                    return_counts=True)
+            for i, c in zip(ids, id_counts):
+                msg += '\n\t\t[{}] {}'.format(i, c)
+        print(msg)
+
+    # split cells
     Xvalidation, Xtrain =  split_coo_rows(X, selected_ids)
     return Xtrain, Xvalidation, selected_ids
 
@@ -333,7 +368,7 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
     ValueError
     """
     if verbose:
-        print('Loading data......')
+        print('Loading data.....')
 
     if infile.endswith('.loom'):
         umis, genes = load_loom(args.input)
@@ -353,8 +388,8 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
         candidate_names = genes[genelist_col]
     ncells, ngenes = umis.shape
     if verbose:
-        print('......found {} cells and {} genes'.format(ncells, ngenes))
-        print('Generating masks for filtering......')
+        print('.....found {} cells and {} genes'.format(ncells, ngenes))
+        print('Generating masks for filtering.....')
 
     if min_cells < 0:
         raise ValueError('min_cells must be >= 0')
@@ -369,7 +404,7 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
                               whitelist=False, split_on_dot = ~no_split_on_dot)
 
     if verbose:
-        print('Filtering data......')
+        print('Filtering data.....')
     genes = genes.loc[mask]
     filtered = umis.tolil()[:,mask].tocoo() # must convert to apply mask
 

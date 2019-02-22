@@ -8,9 +8,10 @@ import pandas as pd
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
-from schpf import scHPF
-from schpf import load_model, save_model, run_trials, max_pairwise_table
-from schpf.preprocessing import load_and_filter, load_coo
+from schpf import scHPF, load_model, save_model, run_trials
+from schpf.util import max_pairwise_table
+from schpf.preprocessing import load_and_filter, split_validation_cells
+from schpf.preprocessing import load_coo
 
 def _parser():
     parser = argparse.ArgumentParser()
@@ -18,6 +19,7 @@ def _parser():
 
     ### Preprocess command
     prep = subparsers.add_parser('prep')
+    # data
     prep.add_argument('-i', '--input', required=True,
             help='Input data. Currently accepts either: (1) a whitespace-'
             'delimited gene by cell UMI count matrix with 2 leading columns '
@@ -30,6 +32,8 @@ def _parser():
             help='Output directory. Does not need to exist.')
     prep.add_argument('-p', '--prefix', default='',
             help='Prefix for output files. Optional.')
+
+    # gene filtering criteria
     prep.add_argument('-m', '--min-cells', type=float, default=0.01, 
             help='Minimum number of cells in which we must observe at '
             'least one transcript of a gene for the gene to pass '
@@ -46,16 +50,32 @@ def _parser():
             'ids to exclude, and second column is the corresponding gene name. '
             'Only performed if file given. Genes on the blacklist are '
             'excluded even if they are also on the whitelist. Optional.')
-    prep.add_argument('-nvc', '--n-validation-cells', default=None)
+
+    # optional selection of cells for validation set
+    prep.add_argument('-nvc', '--n-validation-cells', type=int, default=0,
+            help='Number of cells to randomly select for validation.')
+    prep.add_argument('-vgid', '--validation-group-ids', default=None,
+            help= 'Single column file of cell group ids readable with '
+            ' np.readtxt. If `--n-validation-cells` is > 0, cells will be '
+            ' randomly selected approximately evenly across the groups in '
+            ' this file, under the constraint that at most'
+            ' `--validation-min-group-frac` * (ncells in group) are selected'
+            ' from every group.')
+    prep.add_argument('--validation-min-group-frac', type=float, default=0.5,
+            help='If `-nvc`>0 and `validation-group-ids` is a valid file, at'
+            ' most `validation-min-group-frac`*(ncells in group) cells are'
+            ' selected from each group.')
+
+    # other options
     prep.add_argument('--filter-by-gene-name', default=False, 
-            action='store_true', help='Use gene name rather than ENSEMBL '
-            'id to filter (with whitelist or blacklist).  Useful for '
-            'datasets where only gene symbols are given. Applies to both '
-            'whitelist and blacklist. Used by default when input is a loom '
-            'file.')
+            action='store_true', help='Use gene name rather than ENSEMBL'
+            ' id to filter (with whitelist or blacklist).  Useful for'
+            ' datasets where only gene symbols are given. Applies to both'
+            ' whitelist and blacklist. Used by default when input is a loom'
+            ' file.')
     prep.add_argument('--no-split-on-dot', default=False, action='store_true',
             help='Don\'t split gene symbol or name on period before '
-            'filtering white and blacklist. We do this by default for '
+            'filtering whitelist and blacklist. We do this by default for '
             'ENSEMBL ids.')
 
 
@@ -148,16 +168,33 @@ if __name__=='__main__':
                 filter_by_gene_name=args.filter_by_gene_name,
                 no_split_on_dot=args.no_split_on_dot)
 
-        print('Writing filtered data to file......')
+        print('Writing filtered data to file.....')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
-        mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
+        mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
 
+        if args.n_validation_cells > 0:
+            print('Selecting train/validation cells.....')
+            Xtrn, Xvld, vld_ix = split_validation_cells( filtered,
+                    args.n_validation_cells, args.validation_group_ids)
+            trn_ix = np.setdiff1d(np.arange(filtered.shape[0]), vld_ix)
+
+            print('Writing train/validation splits.....')
+            mmwrite('{}train_cells.mtx'.format(outprefix), Xtrn, 
+                    field='integer')
+            np.savetxt('{}train_cell_ix.txt'.format(outprefix), trn_ix, 
+                    fmt='%d')
+            mmwrite('{}validation_cells.mtx'.format(outprefix), Xvld, 
+                    field='integer')
+            np.savetxt('{}validation_cell_ix.txt'.format(outprefix), vld_ix, 
+                    fmt='%d')
+
+
     elif args.cmd == 'train':
         # load data
-        print( 'Loading data......' )
+        print( 'Loading data.....' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
         # if args.validation_nonzero is not None:
@@ -165,10 +202,10 @@ if __name__=='__main__':
         # else:
             # vnz = None
         ncells, ngenes = train.shape
-        msg = '......found {} cells and {} genes'.format(ncells, ngenes)
+        msg = '.....found {} cells and {} genes'.format(ncells, ngenes)
 
         # create model
-        print('Running trials......' )
+        print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
         model = run_trials(train, 
                     nfactors=args.nfactors, ntrials=args.ntrials,
@@ -178,7 +215,7 @@ if __name__=='__main__':
                     dtype=dtype, verbose=args.verbose)
 
         # save the model
-        print('Saving best model......')
+        print('Saving best model.....')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
@@ -186,27 +223,28 @@ if __name__=='__main__':
         save_model(model, outname)
         print('\n')
 
+
     elif args.cmd == 'score':
-        print('Loading model......')
+        print('Loading model.....')
         model = load_model(args.model)
 
-        print('Calculating scores......')
+        print('Calculating scores.....')
         cell_score = model.cell_score()
         gene_score = model.gene_score()
 
-        print('Saving scores......')
+        print('Saving scores.....')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
 
-        print('Calculating maximum pairwise overlaps......')
+        print('Calculating maximum pairwise overlaps.....')
         table = max_pairwise_table(gene_score, 
                 ntop_list=[50,100,150,200,250,300])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
 
         if args.genefile is not None:
-            print('Ranking genes......')
+            print('Ranking genes.....')
             # load and format gene file
             genes = np.loadtxt(args.genefile, delimiter='\t', dtype=str)
             if len(genes.shape) == 1:
@@ -214,7 +252,7 @@ if __name__=='__main__':
             # get column to use for gene names
             last_col = genes.shape[1] - 1
             name_col = last_col if args.name_col > last_col else args.name_col
-            print('......using {}\'th column of genefile as gene label'.format(
+            print('.....using {}\'th column of genefile as gene label'.format(
                 name_col))
 
             # rank the genes by gene_score
@@ -223,6 +261,6 @@ if __name__=='__main__':
             for i in range(gene_score.shape[1]):
                 ranked_genes.append(genes[ranks[:,i], name_col])
             ranked_genes = np.stack(ranked_genes).T
-            print('Saving ranked genes......')
+            print('Saving ranked genes.....')
             np.savetxt(outprefix + 'ranked_genes.txt', ranked_genes, 
                     fmt="%s", delimiter='\t')

@@ -61,7 +61,7 @@ As written, the command formats data for training and only includes genes that a
 - that we observe transcripts of in at least 5 cells. 
 
 
-After running this command, `OUTDIR` should contain a matrix market file, `train.mtx`, and an ordered list of genes, `genes.txt`. An optional prefix argument can be added, which is prepended to to the output file names.
+After running this command, `OUTDIR` should contain a matrix market file, `filtered.mtx`, and an ordered list of genes, `genes.txt`. An optional prefix argument can be added, which is prepended to to the output file names.
 
 More options and details for preprocessing can be viewed with 
 ```
@@ -77,12 +77,12 @@ scHPF's train command accepts two formats:
 #### Running the train command
 To train an scHPF using data output from the prep command:
 ```
-scHPF train -i TRAIN_FILE -o OUTDIR -p PREFIX -k 7 -t 5
+scHPF train -i filtered.mtx -o OUTDIR -p PREFIX -k 7 -t 5
 ```
 This command performs approximate Bayesian inference on scHPF with, in this instance, seven factors and five different random initializations. scHPF will automatically select the trial with the highest log-likelihood, and save the model in the `OUTDIR` in a serialized [joblib](https://scikit-learn.org/stable/modules/model_persistence.html) file. 
 
-##### Note
-If you get an error like "Inconsistency detected by ld.so: dl-version.c: 224: \_dl_check_map_versions" and are running numba 0.40.0, try downgrading to 0.39.0
+##### Debugging Note
+If you get an error like "Inconsistency detected by ld.so: dl-version.c: 224: \_dl_check_map_versions" and are running numba 0.40.0, try downgrading to 0.39.0. 
 
 More options and details for training can be viewed with 
 ```
