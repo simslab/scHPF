@@ -64,7 +64,7 @@ def load_loom(filename):
     return loom_coo,loom_genes
 
 
-def load_txt(filename,  ngene_cols=2):
+def load_txt(filename,  ngene_cols=2, verbose=True):
     """Load data from a whitespace delimited txt file
 
     Parameters
@@ -73,8 +73,10 @@ def load_txt(filename,  ngene_cols=2):
         file to load.  Expected to be a gene x cell whitespace-delimited file
         without a header where the first `ngene_cols` are gene identifiers,
         names or other metadata.
-    ngene_cols : int, default 2
+    ngene_cols : int, optional (default: 2)
         The number of columns that contain row attributes (ie gene id/names)
+    verbose : bool, optional (default: True)
+        print progress messages
 
     Returns
     -------
@@ -121,7 +123,7 @@ def load_txt(filename,  ngene_cols=2):
                 cols.extend(c)
                 values.extend(val)
 
-                if ((g+1)%10000 == 0) and (g!=0):
+                if verbose and ((g+1)%10000 == 0) and (g!=0):
                     print('\tloaded {} genes for {} cells'.format(
                         g+1, cell+1))
 
