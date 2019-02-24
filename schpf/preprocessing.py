@@ -373,7 +373,7 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
         print('Loading data.....')
 
     if infile.endswith('.loom'):
-        umis, genes = load_loom(args.input)
+        umis, genes = load_loom(infile)
         if 'Accession' in genes.columns:
             candidate_names = genes['Accession']
             genelist_col = 0
