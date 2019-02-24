@@ -200,7 +200,7 @@ def genelist_mask(candidates, genelist, whitelist=True, split_on_dot=True):
     return mask.values
 
 
-def choose_validation_cells(choices, nselect, group_ids=None, max_group_frac=0.5):
+def subsample_cells(choices, nselect, group_ids=None, max_group_frac=0.5):
     """Randomly select cells, potentially accounting for groups
 
     Parameters
@@ -303,7 +303,7 @@ def split_validation_cells(X, nselect, group_id_file='', max_group_frac=0.5,
         group_ids = None
 
     # select cells
-    selected_ids = choose_validation_cells(X.shape[0], nselect, group_ids)
+    selected_ids = subsample_cells(X.shape[0], nselect, group_ids, max_group_frac)
 
     # write a message
     if verbose:
