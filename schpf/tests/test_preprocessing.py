@@ -95,22 +95,22 @@ def test_genelist_mask(protein_coding, exp_genes):
                        ~shared_gene)
 
 
-def test_subsample_cells():
+def test_subsample_cell_ixs():
     # int for choices
-    assert_equal(len(prep.subsample_cells(20, 10)),  10)
+    assert_equal(len(prep.subsample_cell_ixs(20, 10)),  10)
     # array of choices
-    assert_equal(len(prep.subsample_cells(np.arange(20), 10)),  10)
+    assert_equal(len(prep.subsample_cell_ixs(np.arange(20), 10)),  10)
 
     # test picks one from a group
     group_ids = np.array([0] * 100 + [1,1])
-    idx = prep.subsample_cells(102, 10, group_ids=group_ids,
+    idx = prep.subsample_cell_ixs(102, 10, group_ids=group_ids,
             max_group_frac=0.5)
     assert (100 in idx) ^ (101 in idx) #xor
     assert_equal(len(idx), 10)
 
     # test doesn't pick when can't under constraint
     group_ids = np.array([0] * 18 + [1,1])
-    idx = prep.subsample_cells(20, 5, group_ids=group_ids,
+    idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
             max_group_frac=0.4)
     assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
     assert_equal(len(idx), 5) # but still have 5 items
@@ -118,12 +118,12 @@ def test_subsample_cells():
 
     # test doesn't pick more than it can under constraint
     group_ids = np.array([0] * 18 + [1,1])
-    idx = prep.subsample_cells(20, 5, group_ids=group_ids,
+    idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
             max_group_frac=0.25)
     assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
     assert_equal(len(idx), 4) # should have floor(0.25*18) items
     with pytest.warns(UserWarning) as record:
-        idx = prep.subsample_cells(20, 5, group_ids=group_ids,
+        idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
                 max_group_frac=0.25)
     assert len(record) == 1
 
