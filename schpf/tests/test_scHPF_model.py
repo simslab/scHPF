@@ -6,7 +6,7 @@ import pytest
 from numpy.testing import assert_equal
 from numpy.testing import assert_array_equal
 
-from schpf import HPF_Gamma, scHPF
+from schpf import HPF_Gamma, scHPF, combine_across_cells
 
 """For tests of inference, see test_inference.py
 """
@@ -58,10 +58,8 @@ def test__setup_freeze(model, data):
 
     # cell-side vals (should be the smae)
     assert_equal(dp2, dp)
-    assert_array_equal(eta2.vi_shape, eta.vi_shape)
-    assert_array_equal(eta2.vi_rate, eta.vi_rate)
-    assert_array_equal(beta2.vi_shape, beta.vi_shape)
-    assert_array_equal(beta2.vi_rate, beta.vi_rate)
+    assert_equal(eta2, eta)
+    assert_equal(beta2, beta)
 
     # gene-side vals
     assert bp2  != bp
@@ -121,22 +119,70 @@ def test_HPF_Gamma_combine(a_dims, dtype):
 
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_project(data, dtype):
+    # get b indices
     b_idx = np.random.choice(data.shape[0], 10)
+    # get remaining indices (for a)
     a_idx = np.setdiff1d(np.arange(data.shape[0]), b_idx)
+    # split data
     data_csr = data.tocsr()
     a_data = data_csr[a_idx].tocoo()
     b_data = data_csr[b_idx].tocoo()
 
+    # setup model for a_data
     a_model = scHPF(5, dtype=dtype)
     a_model._initialize(a_data)
+
+    #project b_model
     b_model = a_model.project(b_data)
     # check genes frozen
-    assert_array_equal(b_model.eta.vi_shape, a_model.eta.vi_shape)
-    assert_array_equal(b_model.eta.vi_rate, a_model.eta.vi_rate)
-    assert_array_equal(b_model.beta.vi_shape, a_model.beta.vi_shape)
-    assert_array_equal(b_model.beta.vi_rate, a_model.beta.vi_rate)
+    assert_equal(b_model.eta, a_model.eta)
+    assert_equal(b_model.beta, a_model.beta)
     # check cells different
     assert_equal(a_model.ncells, a_data.shape[0])
     assert_equal(b_model.ncells, b_data.shape[0])
 
 
+@pytest.mark.parametrize('dtype', [np.float64, np.float32])
+def test_combine_across_cells(data, dtype):
+    # get b indices
+    b_ixs = np.random.choice(data.shape[0], 10)
+    # get a indices (remaining)
+    a_ixs = np.setdiff1d(np.arange(data.shape[0]), b_ixs)
+    # split data
+    data_csr = data.tocsr()
+    a_data = data_csr[a_ixs].tocoo()
+    b_data = data_csr[b_ixs].tocoo()
+
+    # setup model for a_data
+    a = scHPF(5, dtype=dtype)
+    a._initialize(a_data)
+    # setup model for b_data w/same dp, eta, beta
+    b = scHPF(5, dtype=dtype, dp=a.dp, eta=a.eta, beta=a.beta)
+    b._initialize(b_data)
+
+    ab = combine_across_cells(a, b, b_ixs)
+
+    # check bp is None since it is different across the two models
+    assert_equal(ab.bp, None)
+
+    # check a locals where they should be in xi and eta
+    assert_array_equal(ab.xi.vi_shape[a_ixs], a.xi.vi_shape)
+    assert_array_equal(ab.xi.vi_rate[a_ixs], a.xi.vi_rate)
+    assert_array_equal(ab.theta.vi_shape[a_ixs], a.theta.vi_shape)
+    assert_array_equal(ab.theta.vi_rate[a_ixs], a.theta.vi_rate)
+
+    # check b locals where they should be in xi and eta
+    assert_array_equal(ab.xi.vi_shape[b_ixs], b.xi.vi_shape)
+    assert_array_equal(ab.xi.vi_rate[b_ixs], b.xi.vi_rate)
+    assert_array_equal(ab.theta.vi_shape[b_ixs], b.theta.vi_shape)
+    assert_array_equal(ab.theta.vi_rate[b_ixs], b.theta.vi_rate)
+
+    # check globals unchanged
+    assert_equal(ab.eta, a.eta)
+    assert_equal(ab.eta, b.eta)
+    assert_equal(ab.beta, a.beta)
+    assert_equal(ab.beta, b.beta)
+
+
+# def test_run_trials(data):
+    # pass

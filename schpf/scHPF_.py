@@ -72,6 +72,15 @@ class HPF_Gamma(object):
         self.dtype = vi_shape.dtype
 
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            shape_equal = np.array_equal(self.vi_shape, other.vi_shape)
+            rate_equal = np.array_equal(self.vi_rate, other.vi_rate)
+            dtype_equal = self.dtype == other.dtype
+            return shape_equal and rate_equal and dtype_equal
+        return False
+
+
     @property
     def dims(self):
         assert self.vi_shape.shape == self.vi_rate.shape
@@ -387,6 +396,7 @@ class scHPF(BaseEstimator):
             cases, bp will only be updated for the new data if self.bp==None.
 
         """
+        self.bp = None # have to do this so bp will be for new data
         (bp, _, xi, _, theta, _, loss) = self._fit(X,
                 min_iter=min_iter, max_iter=max_iter, check_freq=check_freq,
                 freeze_genes=True)
@@ -721,13 +731,15 @@ def save_model(model, file_name):
     joblib.dump(model, file_name)
 
 
-def combine_models(a, b, b_ixs):
+def combine_across_cells(a, b, b_ixs):
     """Combine theta & xi from two scHPF instance with the same beta & eta
 
     Intended to be used combining variational distributions for local
     variables (theta,xi) from training data with locals from validation or
     other data that was projected onto the same global variational
     distributions (beta,eta)
+
+    If `a.bp` != `b.bp`, returned model `ab.bp` is set to None.
 
     Parameters
     ----------
