@@ -232,7 +232,7 @@ class scHPF(BaseEstimator):
             theta=None,
             eta=None,
             beta=None,
-            loss=None,
+            loss=[],
             verbose=True,
             ):
         """Initialize HPF instance"""
@@ -251,10 +251,10 @@ class scHPF(BaseEstimator):
         self.dtype = dtype
         self.verbose = verbose
 
-        self.xi = None
-        self.eta = None
-        self.theta = None
-        self.beta = None
+        self.xi = xi
+        self.eta = eta
+        self.theta = theta
+        self.beta = beta
 
         self.loss = []
 
@@ -731,26 +731,27 @@ def save_model(model, file_name):
     joblib.dump(model, file_name)
 
 
-def combine_across_cells(a, b, b_ixs):
+def combine_across_cells(x, y, y_ixs):
     """Combine theta & xi from two scHPF instance with the same beta & eta
 
     Intended to be used combining variational distributions for local
-    variables (theta,xi) from training data with locals from validation or
-    other data that was projected onto the same global variational
-    distributions (beta,eta)
+    variables (theta,xi) from training data with variational distributions
+    for local variables from validation or other data that was projected
+    onto the same global variational distributions (beta,eta)
 
-    If `a.bp` != `b.bp`, returned model `ab.bp` is set to None.
+    If `x.bp` != `y.bp`, returned model `xy.bp` is set to None. All other
+    attributes (except for the merged xi and eta) are inherited from `x`.
 
     Parameters
     ----------
-    a : `scHPF`
-    b : `scHPF`
+    x : `scHPF`
+    y : `scHPF`
         The scHPF instance whose rows in the output should be at the
-        corresponding indices `b_ixs`
-    b_ixs : ndarray
-        Row indices of `b` in the returned distributions. Must be 1-d and
-        have same number of rows as `b`, have no repeats, and have no index
-        greater than or equal to a.ncells + b.ncells.
+        corresponding indices `y_ixs`
+    y_ixs : ndarray
+        Row indices of `y` in the returned distributions. Must be 1-d and
+        have same number of rows as `y`, have no repeats, and have no index
+        greater than or equal to x.ncells + y.ncells.
 
 
     Returns
@@ -758,7 +759,14 @@ def combine_across_cells(a, b, b_ixs):
     ab : `scHPF`
 
     """
-    pass
+    assert x.eta == y.eta
+    assert x.beta == y.beta
+
+    xy = deepcopy(x)
+    xy.bp = None
+    xy.xi = x.xi.combine(y.xi, y_ixs)
+    xy.theta = x.theta.combine(y.theta, y_ixs)
+    return xy
 
 
 def run_trials(X, nfactors,

@@ -145,7 +145,7 @@ def test_project(data, dtype):
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_combine_across_cells(data, dtype):
     # get b indices
-    b_ixs = np.random.choice(data.shape[0], 10)
+    b_ixs = np.random.choice(data.shape[0], 10, replace=False)
     # get a indices (remaining)
     a_ixs = np.setdiff1d(np.arange(data.shape[0]), b_ixs)
     # split data
@@ -158,13 +158,12 @@ def test_combine_across_cells(data, dtype):
     a._initialize(a_data)
     # setup model for b_data w/same dp, eta, beta
     b = scHPF(5, dtype=dtype, dp=a.dp, eta=a.eta, beta=a.beta)
-    b._initialize(b_data)
+    b._initialize(b_data, freeze_genes=True)
 
     ab = combine_across_cells(a, b, b_ixs)
 
     # check bp is None since it is different across the two models
     assert_equal(ab.bp, None)
-
     # check a locals where they should be in xi and eta
     assert_array_equal(ab.xi.vi_shape[a_ixs], a.xi.vi_shape)
     assert_array_equal(ab.xi.vi_rate[a_ixs], a.xi.vi_rate)
