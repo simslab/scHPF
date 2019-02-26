@@ -383,7 +383,8 @@ class scHPF(BaseEstimator):
             distributions theta and xi (for the new cells in `X`) and the
             same variational distributions as self for gene distributions
             beta and eta. If replace=`True`, then the loss for the projection
-            (bp, xi and theta will be updated in self but not returned).
+            (xi and theta will be updated in self but not returned). In both
+            cases, bp will only be updated for the new data if self.bp==None.
 
         """
         (bp, _, xi, _, theta, _, loss) = self._fit(X,

@@ -47,6 +47,35 @@ def test__setup_dims(model_uninit, data):
     assert_equal(beta.vi_rate.shape[1], model_uninit.nfactors)
 
 
+def test__setup_freeze(model, data):
+    my_data = data.tocsr()[:20].tocoo()
+    bp, dp, xi, eta, theta, beta = (model.bp, model.dp, model.xi,
+            model.eta, model.theta, model.beta)
+
+    model.bp = None
+    bp2, dp2, xi2, eta2, theta2, beta2 = model._setup(X=my_data,
+            freeze_genes=True, reinit=True)
+
+    # cell-side vals (should be the smae)
+    assert_equal(dp2, dp)
+    assert_array_equal(eta2.vi_shape, eta.vi_shape)
+    assert_array_equal(eta2.vi_rate, eta.vi_rate)
+    assert_array_equal(beta2.vi_shape, beta.vi_shape)
+    assert_array_equal(beta2.vi_rate, beta.vi_rate)
+
+    # gene-side vals
+    assert bp2  != bp
+    assert xi2.dims != xi.dims
+    assert theta2.dims != theta.dims
+
+    # check bp not updated w/freeze_genes if already set
+    model.bp = bp
+    bp3, _, _, _, _, _ = model._setup(X=my_data, freeze_genes=True, reinit=True)
+    print(bp, bp2, bp3)
+    assert bp3 == bp
+    assert bp3 != bp2
+
+
 @pytest.mark.parametrize('a_dims', [[5,], [5,10]])
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_HPF_Gamma_combine(a_dims, dtype):
@@ -80,6 +109,7 @@ def test_HPF_Gamma_combine(a_dims, dtype):
     with pytest.raises(AssertionError):
         ab = a.combine(b, b_ix)
 
+
     b_ix = [0,1,2,2]
     with pytest.raises(AssertionError):
         ab = a.combine(b, b_ix)
@@ -109,5 +139,4 @@ def test_project(data, dtype):
     assert_equal(a_model.ncells, a_data.shape[0])
     assert_equal(b_model.ncells, b_data.shape[0])
 
-# def test_run_trials(data):
-    # pass
+
