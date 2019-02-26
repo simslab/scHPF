@@ -48,7 +48,8 @@ def get_projection_loss_function(loss_function, X,
     model_kwargs : dict, optional
         additional keyword arguments for scHPF()
     proj_kwargs : dict, optional
-        additional keyword arguments for scHPF.project()
+        additional keyword arguments for scHPF.project(). By default,
+        `max_iter`, 'min_iter', and 'check_freq'=5,
 
 
     Returns
@@ -67,6 +68,9 @@ def get_projection_loss_function(loss_function, X,
         nfactors = beta.vi_shape[1]
         model = scHPF(nfactors=nfactors, a=a, ap=ap, c=c, cp=cp, dp=dp,
                     eta=eta, beta=beta, **model_kwargs)
+        if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 5
+        if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 5
+        if 'cheq_freq' not in proj_kwargs: proj_kwargs['cheq_freq'] = 5
         model.project(X, replace=True, **proj_kwargs)
 
         return loss_function(X, a=model.a, ap=model.ap, bp=model.bp,

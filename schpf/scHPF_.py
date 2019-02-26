@@ -26,6 +26,15 @@ class HPF_Gamma(object):
     vi_rate: np.ndarray
         Gamma rate parameter for the variational Gamma distributions.
         Ndarray.shape[0] must match `vi_shape`
+
+    Attributes
+    ----------
+    vi_shape : ndarray
+    vi_rate : ndarray
+    dims : ndarray
+        The shape of vi_shape and vi_rate
+    dtype : dtype
+        dtype of both vi_shape and vi_rate
     """
 
     @staticmethod
@@ -60,8 +69,13 @@ class HPF_Gamma(object):
         assert(np.all(vi_rate > 0))
         self.vi_shape = vi_shape
         self.vi_rate = vi_rate
-        self.dims = vi_shape.shape
         self.dtype = vi_shape.dtype
+
+
+    @property
+    def dims(self):
+        assert self.vi_shape.shape == self.vi_rate.shape
+        return self.vi_shape.shape
 
 
     @property
@@ -105,6 +119,45 @@ class HPF_Gamma(object):
         for i in range(nsamples):
             samples.append(np.random.gamma(self.vi_shape, 1/self.vi_rate).T)
         return np.stack(samples).T
+
+
+    def combine(self, other, other_ixs):
+        """ Combine with another HPF_Gamma
+
+        Useful for combining variational distributions from training data with
+        variational distributions from cells that were projected onto frozen
+        beta and eta
+
+        Parameters
+        ----------
+        other : `HPF_Gamma`
+            Other HPF_Gamma to merge with
+        other_ixs : list or ndarray
+            Ordered indices of other in the merged HPF_Gamma. Must have len
+            equal to other.shape[0]. Must have a maximum value less than
+            self.dims[0] + other.shape[0]. May not have any repeat values.
+
+        Returns
+        -------
+        combined_model : `HPF_Gamma`
+        """
+        assert other.dims[0] == len(other_ixs)
+        assert len(np.unique(other_ixs)) == len(other_ixs)
+        assert self.dims[0] + other.dims[0] > np.max(other_ixs)
+
+        new_dims = [self.dims[0]+other.dims[0], *self.dims[1:]]
+        self_ixs = np.setdiff1d(np.arange(new_dims[0]),
+                other_ixs)
+
+        new_vi_shape = np.empty(new_dims, dtype=self.dtype)
+        new_vi_shape[self_ixs] = self.vi_shape
+        new_vi_shape[other_ixs] = other.vi_shape
+
+        new_vi_rate = np.empty(new_dims, dtype=self.dtype)
+        new_vi_rate[self_ixs] = self.vi_rate
+        new_vi_rate[other_ixs] = other.vi_rate
+
+        return HPF_Gamma(new_vi_shape, new_vi_rate)
 
 
 class scHPF(BaseEstimator):
@@ -210,7 +263,7 @@ class scHPF(BaseEstimator):
     def cell_score(self, xi=None, theta=None):
         """Get cell score from xi and theta
 
-        Properties
+        Parameters
         ----------
         xi : HPF_Gamma, (optional, default self.xi)
             varitional distributions for xi
@@ -301,7 +354,7 @@ class scHPF(BaseEstimator):
         return self
 
 
-    def project(self, X, replace=False, min_iter=4, max_iter=14, check_freq=2,
+    def project(self, X, replace=False, min_iter=2, max_iter=10, check_freq=2,
             **kwargs):
         """Project new cells into latent space
 
@@ -311,26 +364,29 @@ class scHPF(BaseEstimator):
         ----------
         X: coo_matrix
             Data to project.  Should have self.ngenes columns
-        replace: bool (optional, default False)
-            Replace theta, xi, and bp with projected values in self
-        min_iter: int (optional, default 4)
+        replace: bool, optional (Default: False)
+            Replace theta, xi, and bp with projected values in self. Note that
+            loss will not be updated
+        min_iter: int, (Default: 2)
             Replaces self.min_iter if not None. Few iterations are needed
             because beta and eta are fixed.
-        max_iter: int (optional, default 14)
+        max_iter: int, (Default: 10)
             Replaces self.max_iter if not None. Few iterations are needed
             because beta and eta are fixed.
-        check_freq: int (optional, default 2)
+        check_freq: int, optional (Default: 2)
             Number of training iterations between calculating loss.
 
         Returns
         -------
-        projection : scHPF
-            An scHPF object with variational distributions theta and xi (for the
-            new cells in `X`) and the same variational distributions as self
-            for gene distributions beta and eta
+        projection : scHPF or ndarray
+            If replace=`False`, an  scHPF object with variational
+            distributions theta and xi (for the new cells in `X`) and the
+            same variational distributions as self for gene distributions
+            beta and eta. If replace=`True`, then the loss for the projection
+            (bp, xi and theta will be updated in self but not returned).
 
         """
-        (bp, _, xi, _, theta, _) = self._fit(X,
+        (bp, _, xi, _, theta, _, loss) = self._fit(X,
                 min_iter=min_iter, max_iter=max_iter, check_freq=check_freq,
                 freeze_genes=True)
         if replace:
@@ -343,6 +399,7 @@ class scHPF(BaseEstimator):
             new_scHPF.bp = bp
             new_scHPF.xi = xi
             new_scHPF.theta = theta
+            new_scHPF.loss = loss
             return new_scHPF
 
 
@@ -362,12 +419,13 @@ class scHPF(BaseEstimator):
         -------
         score : ndarray
         """
-        assert(loading.vi_rate.shape[0] == capacity.vi_rate.shape[0])
+        assert(loading.dims[0] == capacity.dims[0])
         return loading.e_x * capacity.e_x[:,None]
 
 
-    def _fit(self, X, freeze_genes=False, reinit=True, min_iter=None,
-            loss_function=None, checkstep_function=None, verbose=None):
+    def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
+            min_iter=None, max_iter=None, check_freq=None,
+            checkstep_function=None, verbose=None):
         """Combined internal fit/transform function
 
         Parameters
@@ -381,9 +439,6 @@ class scHPF(BaseEstimator):
             already exist. Superseded by freeze_genes. Does not affect
             self.bp and self.dp which will only be set empirically if they
             are None
-        min_iter: int (optional, default None)
-            Replaces self.min_iter if given.  Useful when projecting
-            new data onto an existing scHPF model.
         loss_function : function, (optional, default None)
             Function to use for loss, which is assumed to be nonzero and
             decrease with improvement. Must accept hyperparameters a, ap,
@@ -393,6 +448,15 @@ class scHPF(BaseEstimator):
             not pass it any data). If `loss_function` is not given or equal
             to None, the mean negative log likelihood of nonzero values in
             training data `X` is used.
+        min_iter: int (optional, default None)
+            Replaces self.min_iter if given.  Useful when projecting
+            new data onto an existing scHPF model.
+        max_iter: int (optional, default None)
+            Replaces self.max_iter if given.  Useful when projecting
+            new data onto an existing scHPF model.
+        check_freq : int, optional (Default: None)
+            Replaces self.check_freq if given.  Useful when projecting
+            new data onto an existing scHPF model.
         checkstep_function : function  (optional, default None)
             A function that takes arguments bp, dp, xi, eta, theta, beta,
             and t and, if given, is called at check_interval. Intended use
@@ -441,9 +505,12 @@ class scHPF(BaseEstimator):
 
         ## init
         loss, pct_change = [], []
+        # check variable overrides
         min_iter = self.min_iter if min_iter is None else min_iter
+        max_iter = self.max_iter if max_iter is None else max_iter
+        check_freq = self.check_freq if check_freq is None else check_freq
         verbose = self.verbose if verbose is None else verbose
-        for t in range(self.max_iter):
+        for t in range(max_iter):
             if t==0 and reinit: #randomize phi for first iteration
                 random_phi = np.random.dirichlet( np.ones(nfactors),
                         X.data.shape[0])
@@ -470,7 +537,7 @@ class scHPF(BaseEstimator):
 
 
             # record llh/percent change and check for convergence
-            if t % self.check_freq == 0:
+            if t % check_freq == 0:
 
                 # chech llh
                 # vX = validation_data if validation_data is not None else X
@@ -653,6 +720,34 @@ def save_model(model, file_name):
     joblib.dump(model, file_name)
 
 
+def combine_models(a, b, b_ixs):
+    """Combine theta & xi from two scHPF instance with the same beta & eta
+
+    Intended to be used combining variational distributions for local
+    variables (theta,xi) from training data with locals from validation or
+    other data that was projected onto the same global variational
+    distributions (beta,eta)
+
+    Parameters
+    ----------
+    a : `scHPF`
+    b : `scHPF`
+        The scHPF instance whose rows in the output should be at the
+        corresponding indices `b_ixs`
+    b_ixs : ndarray
+        Row indices of `b` in the returned distributions. Must be 1-d and
+        have same number of rows as `b`, have no repeats, and have no index
+        greater than or equal to a.ncells + b.ncells.
+
+
+    Returns
+    -------
+    ab : `scHPF`
+
+    """
+    pass
+
+
 def run_trials(X, nfactors,
         ntrials=5,
         min_iter=30,
@@ -726,7 +821,7 @@ def run_trials(X, nfactors,
     if loss_function is None:
         loss_function = ls.mean_negative_pois_llh
     if vcells is not None:
-        assert vcells.shape[1] == X.shape[1]
+        assert X.shape[1] == vcells.shape[1]
         data_loss_function = ls.get_projection_loss_function(
                 loss_function, vcells)
     else:
