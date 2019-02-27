@@ -10,8 +10,8 @@ from scipy.sparse import coo_matrix
 
 from schpf import scHPF, load_model, save_model, run_trials
 from schpf.util import max_pairwise_table
-from schpf.preprocessing import load_and_filter, split_validation_cells
-from schpf.preprocessing import load_coo
+from schpf.preprocessing import load_coo, load_and_filter
+from schpf.preprocessing import split_validation_cells
 
 def _parser():
     parser = argparse.ArgumentParser()
