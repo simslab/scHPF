@@ -9,7 +9,7 @@ from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
 from schpf import scHPF
-from schpf import load_model, save_model, run_trials, 
+from schpf import load_model, save_model, run_trials
 from schpf.preprocessing import load_and_filter, load_coo
 from schpf.util import max_pairwise_table
 
