@@ -42,7 +42,7 @@ scHPF's prep command intakes a molecular count matrix for an scRNA-seq experimen
 scHPF prep currently accepts two input file formats:
 1. A whitespace-delimited matrix formatted like: <pre>ENSEMBL_ID  GENE_NAME  UMICOUNT_CELL0  UMICOUNT_CELL1 ... </pre> The matrix should not have a header, but may be compressed with gzip or bzip2. 
 
-2. A loom file ([loompy.org](http://loompy.org/)). The loom file must have at least one of the row attributes `Accession` or `Gene`, where `Accession` is an ENSEMBL id and `Gene` is a gene name. 
+2. A [loom file](http://loompy.org/). The loom file must have at least one of the row attributes `Accession` or `Gene`, where `Accession` is an ENSEMBL id and `Gene` is a gene name. 
 
 #### Filtering non-coding genes during preprocessing
 We recommend restricting analysis to protein-coding genes. The `-w`/`--whitelist` option removes all genes in the input data that are **not in** a two column, tab-delimited text file of ENSEMBL gene ids and names. 
@@ -59,7 +59,7 @@ To preprocess genome-wide UMI counts for a typical run, use the command:
 scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 5 -w GENE_WHITELIST
 ```
 As written, the command formats data for training and only includes genes that are:
-- on the whitelist (eg protein coding, see [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources)) and 
+- on the whitelist (eg protein coding, see [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources) & previous section) and 
 - that we observe transcripts of in at least 5 cells. 
 
 
