@@ -61,7 +61,7 @@ def _parser():
             ' this file, under the constraint that at most'
             ' `--validation-min-group-frac` * (ncells in group) are selected'
             ' from every group.')
-    prep.add_argument('--validation-min-group-frac', type=float, default=0.5,
+    prep.add_argument('--validation-max-group-frac', type=float, default=0.5,
             help='If `-nvc`>0 and `validation-group-ids` is a valid file, at'
             ' most `validation-min-group-frac`*(ncells in group) cells are'
             ' selected from each group.')
@@ -103,6 +103,10 @@ def _parser():
             help='Number of times to run scHPF, selecting the trial with '
             'best loss (on training data unless validation is given).'
             ' [Default 1]')
+    train.add_argument('-v', '--validation-cells', default=None,
+            help='Cells to use to assess convergence and choose a model.'
+            ' Expects same format as `-i/--input`.'
+            )
     # train.add_argument('-vnz', '--validation-nonzero', 
             # help='Validation data of selected nonzero entries. Must have same '
             # 'format (either mtx or tsv) as input. [Default None]' )
@@ -178,7 +182,8 @@ if __name__=='__main__':
         if args.n_validation_cells > 0:
             print('Selecting train/validation cells.....')
             Xtrn, Xvld, vld_ix = split_validation_cells( filtered,
-                    args.n_validation_cells, args.validation_group_ids)
+                    args.n_validation_cells, args.validation_group_ids,
+                    max_group_frac = args.validation_max_group_frac)
             trn_ix = np.setdiff1d(np.arange(filtered.shape[0]), vld_ix)
 
             print('Writing train/validation splits.....')
@@ -197,17 +202,23 @@ if __name__=='__main__':
         print( 'Loading data.....' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
-        # if args.validation_nonzero is not None:
-            # vnz = load_fnc(args.validation_nonzero)
-        # else:
-            # vnz = None
+
         ncells, ngenes = train.shape
-        msg = '.....found {} cells and {} genes'.format(ncells, ngenes)
+        msg = '.....found {} cells and {} genes in {}'.format(
+                ncells, ngenes, args.input)
+        print(msg)
+        if args.validation_cells is not None:
+            vcells = load_fnc(args.validation_cells)
+            msg = '.....found {} validation cells and {} genes in {}'.format(
+                    vcells.shape[0], vcells.shape[1], args.validation_cells)
+            print(msg)
+        else:
+            vcells = None
 
         # create model
         print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
-        model = run_trials(train, 
+        model = run_trials(train, vcells=vcells,
                     nfactors=args.nfactors, ntrials=args.ntrials,
                     min_iter=args.min_iter, max_iter=args.max_iter,
                     check_freq=args.check_freq, epsilon=args.epsilon,
@@ -215,12 +226,25 @@ if __name__=='__main__':
                     dtype=dtype, verbose=args.verbose)
 
         # save the model
-        print('Saving best model.....')
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
-        outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
-                outprefix, args.nfactors, args.epsilon, args.ntrials)
-        save_model(model, outname)
+        model_outprefix = '{}scHPF_K{}_epsilon{}_{}trials'.format(
+                    outprefix, args.nfactors, args.epsilon, args.ntrials)
+        if vcells is None:
+            print('Saving best model.....')
+            save_model(model, model_outprefix + '.joblib')
+        else:
+            print('Saving best model (training data).....')
+            save_model(model, model_outprefix + '.train.joblib')
+
+            print('Computing final validation projection....')
+            projection = model.project(vcells, replace=False)
+            print('Saving validation projection.....')
+            proj_out = '{}scHPF_K{}_epsilon{}_{}trials.validation_proj.joblib'.format(
+                    outprefix, args.nfactors, args.epsilon, args.ntrials)
+            save_model(projection, model_outprefix + '.validaton_proj.joblib')
+
+
         print('\n')
 
 

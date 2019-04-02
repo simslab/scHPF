@@ -348,8 +348,9 @@ class scHPF(BaseEstimator):
         ----------
         X: coo_matrix
             Data to fit
-        validation_nz: coo_matrix, (optional, default None)
-            coo_matrix, which should have the same shape as
+        loss_function : function, optional (Default: None)
+            loss function to use for fit. set to negative poisson likelihood
+            of X if not given
         """
         (bp, dp, xi, eta, theta, beta, loss) = self._fit(
                 X, **kwargs)
@@ -387,7 +388,7 @@ class scHPF(BaseEstimator):
 
         Returns
         -------
-        projection : scHPF or ndarray
+        result : scHPF or ndarray
             If replace=`False`, an  scHPF object with variational
             distributions theta and xi (for the new cells in `X`) and the
             same variational distributions as self for gene distributions
@@ -396,18 +397,15 @@ class scHPF(BaseEstimator):
             cases, bp will only be updated for the new data if self.bp==None.
 
         """
-        self.bp = None # have to do this so bp will be for new data
-        (bp, _, xi, _, theta, _, loss) = self._fit(X,
+        (_, _, xi, _, theta, _, loss) = self._fit(X,
                 min_iter=min_iter, max_iter=max_iter, check_freq=check_freq,
-                freeze_genes=True)
+                freeze_genes=True, **kwargs)
         if replace:
-            self.bp = bp
             self.xi = xi
             self.theta = theta
-            return self
+            return loss
         else:
             new_scHPF = deepcopy(self)
-            new_scHPF.bp = bp
             new_scHPF.xi = xi
             new_scHPF.theta = theta
             new_scHPF.loss = loss
@@ -572,7 +570,8 @@ class scHPF(BaseEstimator):
                             t, curr, pct_change[-1])
                     print(msg)
                 if checkstep_function is not None:
-                    checkstep_function(bp, dp, xi, eta, theta, beta, t)
+                    checkstep_function(bp=bp, dp=dp, xi=xi, eta=eta, theta=theta,
+                            beta=beta, t=t)
 
                 # check convergence
                 if len(loss) > 3 and t >= min_iter:
@@ -643,21 +642,7 @@ class scHPF(BaseEstimator):
         xi, eta, theta, beta = (self.xi, self.eta, self.theta, self.beta)
 
         # empirically set bp and dp
-        def mean_var_ratio(X, axis):
-            axis_sum = X.sum(axis=axis)
-            return np.mean(axis_sum) / np.var(axis_sum)
-        if bp is None:
-            bp = ap * mean_var_ratio(X, axis=1)
-        if dp is None: # dp first in case of error
-            if freeze_genes:
-                msg = 'dp is None and cannot  dp when freeze_genes is True.'
-                raise ValueError(msg)
-            else:
-                dp = cp *  mean_var_ratio(X, axis=0)
-                if clip and bp > 1000 * dp:
-                    old_val = dp
-                    dp = bp / 1000
-                    print('Clipping dp: was {} now {}'.format(old_val, dp))
+        bp, dp = self._get_empirical_hypers(X, freeze_genes, clip)
 
         if reinit or (xi is None):
             xi = HPF_Gamma.random_gamma_factory((ncells,), ap, bp,
@@ -683,6 +668,41 @@ class scHPF(BaseEstimator):
                         c, dp, dtype=self.dtype)
 
         return (bp, dp, xi, eta, theta, beta)
+
+
+    def _get_empirical_hypers(self, X, freeze_genes=False, clip=True):
+        """Get empirical values for bp, dp
+
+        Parameters
+        ----------
+        X : coo_matrix
+            Data to fit
+
+        Returns
+        -------
+        bp : float
+        dp : float
+        """
+        bp, dp = self.bp, self.dp
+        # empirically set bp and dp
+        def mean_var_ratio(X, axis):
+            axis_sum = X.sum(axis=axis)
+            return np.mean(axis_sum) / np.var(axis_sum)
+        if bp is None:
+            bp = self.ap * mean_var_ratio(X, axis=1)
+        if dp is None: # dp first in case of error
+            if freeze_genes:
+                msg = 'dp is None and cannot be set'
+                msg += ' when freeze_genes is True.'
+                raise ValueError(msg)
+            else:
+                dp = self.cp *  mean_var_ratio(X, axis=0)
+                if clip and bp > 1000 * dp:
+                    old_val = dp
+                    dp = bp / 1000
+                    print('Clipping dp: was {} now {}'.format(old_val, dp))
+
+        return bp, dp
 
 
     def _initialize(self, X, freeze_genes=False):
@@ -759,11 +779,13 @@ def combine_across_cells(x, y, y_ixs):
     ab : `scHPF`
 
     """
+    assert x.dp == y.dp
     assert x.eta == y.eta
     assert x.beta == y.beta
 
     xy = deepcopy(x)
-    xy.bp = None
+    if y.bp != x.bp:
+        xy.bp = None
     xy.xi = x.xi.combine(y.xi, y_ixs)
     xy.theta = x.theta.combine(y.theta, y_ixs)
     return xy
@@ -838,31 +860,48 @@ def run_trials(X, nfactors,
         msg += ' genes only.'
         print(msg)
 
-    # setup the loss function
-    if loss_function is None:
-        loss_function = ls.mean_negative_pois_llh
-    if vcells is not None:
-        assert X.shape[1] == vcells.shape[1]
-        data_loss_function = ls.get_projection_loss_function(
-                loss_function, vcells)
-    else:
-        if vX is not None:
-            assert vX.shape == X.shape
-        else:
-            vX = X
-        data_loss_function = ls.loss_function_for_data(loss_function, vX)
+    # get the loss function for any data
+    if loss_function is None: loss_function = ls.mean_negative_pois_llh
+
+    # check data we're using for loss
+    if vcells is not None: assert X.shape[1] == vcells.shape[1]
+    if vX is not None: assert vX.shape == X.shape
+    else: vX = X
+    # setup loss fnc w/data (will be overridden if vcells is not None)
+    data_loss_function = ls.loss_function_for_data(loss_function, vX)
 
     # run trials
     best_loss, best_model, best_t = np.finfo(np.float64).max, None, None
     for t in range(ntrials):
+        # make a new model
         model = scHPF(nfactors=nfactors,
                     min_iter=min_iter, max_iter=max_iter,
                     check_freq=check_freq, epsilon=epsilon,
                     better_than_n_ago=better_than_n_ago,
                     verbose=verbose, dtype=dtype,
-                    loss_function = data_loss_function
                     )
-        model.fit(X)
+
+        # override the loss function data if we have vcells
+        # (must be redone for each new model)
+        if vcells is not None:
+            proj_kwargs = dict(reinit=False,
+                               min_iter=1,
+                               max_iter=min(10, check_freq),
+                               check_freq=check_freq+1,
+                               verbose=False
+                               )
+            data_loss_function = ls.projection_loss_function(
+                    loss_function, vcells, nfactors,
+                    proj_kwargs=proj_kwargs)
+            def checkstep_function(**kwargs):
+                loss = ls.loss_function_for_data(loss_function, X)
+                print('\t\ttrain_loss', '{0:.6f}'.format(loss(**kwargs)))
+        else:
+            checkstep_function = None
+
+        # fit the model
+        model.fit(X, loss_function=data_loss_function,
+                  checkstep_function=checkstep_function)
 
         loss = model.loss[-1]
         if loss < best_loss:

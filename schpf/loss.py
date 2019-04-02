@@ -33,7 +33,7 @@ def loss_function_for_data(loss_function, X):
     return functools.partial(loss_function, X=X)
 
 
-def get_projection_loss_function(loss_function, X,
+def projection_loss_function(loss_function, X, nfactors,
         model_kwargs={}, proj_kwargs={}):
     """ Project new data onto an existing model and calculate loss from it
 
@@ -45,39 +45,58 @@ def get_projection_loss_function(loss_function, X,
         Data to project onto the existing model.  Can have an arbitrary number
         of rows (cells) > 0, but must have the same number of columns (genes)
         as the existing model
+    nfactors : int
+        Number of factors in model
     model_kwargs : dict, optional
         additional keyword arguments for scHPF()
     proj_kwargs : dict, optional
         additional keyword arguments for scHPF.project(). By default,
-        `max_iter`, 'min_iter', and 'check_freq'=5,
+        `max_iter`=5,
 
 
     Returns
     -------
     projection_loss_function : function
-        A function which takes `a`, `ap`, `c`, `cp`, `dp`, `eta`, and `beta`
-        for an scHPF model, projects a fixed dataset onto it, and takes the
-        loss (using a fixed function) with respect to both the model and the
-        data's projection.
+        A function which takes `a`, `ap`, `bp`, `c`, `cp`, `dp`, `eta`, and
+        `beta` for an scHPF model, projects a fixed dataset onto it, and takes
+        the loss (using a fixed function) with respect to both the model and
+        the data's projection.
+
     """
     # have to do import here to avoid issue with files importing each other
     from schpf import scHPF
-    def projection_loss_function(*, a, ap, c, cp, dp, eta, beta, **kwargs):
-        assert eta.vi_shape.shape[0] == beta.vi_shape[0]
 
-        nfactors = beta.vi_shape[1]
-        model = scHPF(nfactors=nfactors, a=a, ap=ap, c=c, cp=cp, dp=dp,
-                    eta=eta, beta=beta, **model_kwargs)
+    # make the model used for projection
+    pmodel = scHPF(nfactors=nfactors, **model_kwargs)
+
+    # actual loss function for data
+    def _projection_loss_function(*, a, ap, bp, c, cp, dp, eta, beta, **kwargs):
+        assert eta.dims[0] == beta.dims[0]
+        assert beta.dims[1] == nfactors
+
+        pmodel.a = a
+        pmodel.ap = ap
+        pmodel.bp = bp
+        pmodel.c = c
+        pmodel.cp = cp
+        pmodel.dp = dp
+        pmodel.eta = eta
+        pmodel.beta = beta
+
+        if 'reinit' not in proj_kwargs: prj_kwargs['reinit'] = False
         if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 5
         if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 5
-        if 'cheq_freq' not in proj_kwargs: proj_kwargs['cheq_freq'] = 5
-        model.project(X, replace=True, **proj_kwargs)
+        if 'check_freq' not in proj_kwargs:
+            proj_kwargs['check_freq'] = proj_kwargs['max_iter'] + 1
 
-        return loss_function(X, a=model.a, ap=model.ap, bp=model.bp,
-                c=model.c, cp=model.cp, dp=model.dp, xi=model.xi,
-                eta=model.eta, theta=model.theta, beta=model.beta)
+        # do the projection
+        pmodel.project(X, replace=True, **proj_kwargs)
 
-    return projection_loss_function
+        return loss_function(X, a=pmodel.a, ap=pmodel.ap, bp=pmodel.bp,
+                c=pmodel.c, cp=pmodel.cp, dp=pmodel.dp, xi=pmodel.xi,
+                eta=pmodel.eta, theta=pmodel.theta, beta=pmodel.beta)
+
+    return _projection_loss_function
 
 
 #### Loss functions
