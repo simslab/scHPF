@@ -895,7 +895,7 @@ def run_trials(X, nfactors,
                     proj_kwargs=proj_kwargs)
             def checkstep_function(**kwargs):
                 loss = ls.loss_function_for_data(loss_function, X)
-                print('\t\ttrain_loss', '{0:.6f}'.format(loss(**kwargs)))
+                print('\ttrain:', '{0:.6f}'.format(loss(**kwargs)))
         else:
             checkstep_function = None
 

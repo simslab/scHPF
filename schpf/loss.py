@@ -84,8 +84,8 @@ def projection_loss_function(loss_function, X, nfactors,
         pmodel.beta = beta
 
         if 'reinit' not in proj_kwargs: prj_kwargs['reinit'] = False
-        if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 5
-        if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 5
+        if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 10
+        if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 10
         if 'check_freq' not in proj_kwargs:
             proj_kwargs['check_freq'] = proj_kwargs['max_iter'] + 1
 
