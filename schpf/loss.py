@@ -83,6 +83,7 @@ def projection_loss_function(loss_function, X, nfactors,
         pmodel.eta = eta
         pmodel.beta = beta
 
+        # defaults if not given
         if 'reinit' not in proj_kwargs: prj_kwargs['reinit'] = False
         if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 10
         if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 10
@@ -92,6 +93,7 @@ def projection_loss_function(loss_function, X, nfactors,
         # do the projection
         pmodel.project(X, replace=True, **proj_kwargs)
 
+        # calculate loss
         return loss_function(X, a=pmodel.a, ap=pmodel.ap, bp=pmodel.bp,
                 c=pmodel.c, cp=pmodel.cp, dp=pmodel.dp, xi=pmodel.xi,
                 eta=pmodel.eta, theta=pmodel.theta, beta=pmodel.beta)
