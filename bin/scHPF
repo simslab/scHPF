@@ -212,6 +212,12 @@ if __name__=='__main__':
             msg = '.....found {} validation cells and {} genes in {}'.format(
                     vcells.shape[0], vcells.shape[1], args.validation_cells)
             print(msg)
+            msg = 'WARNING: scHPF models with validation cells can be slow'
+            msg += ' to converge.\n\tIf you observe this, try either (or both)'
+            msg += ' increasing epsilon (-e, currently set to {})'.format(
+                    args.epsilon)
+            msg += ' or increasing the number of validation cells (using prep)'
+            print(msg)
         else:
             vcells = None
 
