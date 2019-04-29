@@ -62,18 +62,18 @@ def test_load_like(tmp_path):
     genes.to_csv(gene_file, header=None, sep='\t', index=None)
 
     # load like permuted reference
-    ll_umi, ll_genes = prep.load_like(TXT, ref_file=gene_file)
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file)
     assert_equal(len(ll_genes), len(perm))
     assert_array_equal(umis, ll_umi.A)
 
     # repeat with no_split_on_dot
-    ll_umi, ll_genes = prep.load_like(TXT, ref_file=gene_file,
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file,
             no_split_on_dot=True)
     assert_equal(len(ll_genes), len(perm))
     assert_array_equal(umis, ll_umi.A)
 
     # by gene name
-    ll_umi, ll_genes = prep.load_like(TXT, ref_file=gene_file,
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file,
             by_gene_name=True)
     assert_equal(len(ll_genes), len(perm))
     assert_array_equal(umis, ll_umi.A)
@@ -83,7 +83,7 @@ def test_load_like(tmp_path):
     bad_genes.loc[5, 0] = 'random'
     bad_genes.to_csv(gene_file, header=None, sep='\t', index=None)
     with pytest.raises(ValueError):
-        ll_umi, ll_genes = prep.load_like(TXT, ref_file=gene_file)
+        ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file)
 
 
 def test_min_cells_expressing(data):

@@ -414,7 +414,7 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
     return filtered, genes
 
 
-def load_like(infile, ref_file, by_gene_name=False,
+def load_like(infile, reference, by_gene_name=False,
         no_split_on_dot=False):
     """Load expression matrix, selecting genes and ordering like a reference
     gene list
@@ -427,18 +427,30 @@ def load_like(infile, ref_file, by_gene_name=False,
         (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom file with at
         least one of the row attributes `Accession` or `Gene`, where `Accession`
         is an ENSEMBL id and `Gene` is the name.
-    ref_file
+    reference : str
         Tab-delimited file where first column contains ENSEMBL gene ids and
         second column contains corresponding gene names. Returned array
         will contain exactly these genes, in this order, for counts in cells
         in `infile`
     by_gene_name : bool, optional (Default: False)
+        match files by gene name (second 1-indexed column)
     no_split_on_dot : bool, optional
         Don't split gene symbol or name on period before filtering white and
         blacklist. We do this by default for ENSEMBL ids. Default False.
 
     Returns
     -------
+    reordered_coo : coo_matrix
+        cell x gene sparse count matrix with genes filtered and ordered like
+        reference
+    reordered_genes : pd.DataFrame
+        ngenes x ngene_cols array of gene names/attributes. Should basically by
+        a duplicate of reference
+
+
+    Raises
+    ------
+    ValueError : if a gene from the reference is not in infile
     """
     if infile.endswith('.loom'):
         umis, genes = load_loom(infile)
@@ -459,7 +471,7 @@ def load_like(infile, ref_file, by_gene_name=False,
     ncells, ngenes = umis.shape
 
     # load the reference order
-    ref = pd.read_csv(ref_file, delim_whitespace=True, header=None
+    ref = pd.read_csv(reference, delim_whitespace=True, header=None
             )[genelist_col]
     # select input column and process names unless told not to
     if no_split_on_dot:
@@ -473,8 +485,8 @@ def load_like(infile, ref_file, by_gene_name=False,
         for g in ref:
             perm.append(np.where(ingenes==g)[0][0])
     except IndexError as e:
-        msg = 'Reference gene `{}` in ref_file `{}` not found in infile `{}`'
-        msg = msg.format(g, ref_file, infile)
+        msg = 'Reference gene `{}` in reference `{}` not found in infile `{}`'
+        msg = msg.format(g, reference, infile)
         raise ValueError(msg)
 
     reordered_umis = umis.tocsr()[:,perm].tocoo()
