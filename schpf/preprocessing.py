@@ -413,3 +413,70 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
 
     return filtered, genes
 
+
+def load_like(infile, ref_file, by_gene_name=False,
+        no_split_on_dot=False):
+    """Load expression matrix, selecting genes and ordering like a reference
+    gene list
+
+    Parameters
+    ----------
+    infile : str
+        Input data. Currently accepts either: (1) a whitespace-delimited gene
+        by cell UMI count matrix with 2 leading columns of gene attributes
+        (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom file with at
+        least one of the row attributes `Accession` or `Gene`, where `Accession`
+        is an ENSEMBL id and `Gene` is the name.
+    ref_file
+        Tab-delimited file where first column contains ENSEMBL gene ids and
+        second column contains corresponding gene names. Returned array
+        will contain exactly these genes, in this order, for counts in cells
+        in `infile`
+    by_gene_name : bool, optional (Default: False)
+    no_split_on_dot : bool, optional
+        Don't split gene symbol or name on period before filtering white and
+        blacklist. We do this by default for ENSEMBL ids. Default False.
+
+    Returns
+    -------
+    """
+    if infile.endswith('.loom'):
+        umis, genes = load_loom(infile)
+        if 'Accession' in genes.columns:
+            candidate_names = genes['Accession']
+            genelist_col = 0
+        elif 'Gene' in genes.columns:
+            candidate_names = genes['Gene']
+            genelist_col = 1
+        else:
+            msg = 'loom files must have at least one of the row '
+            msg+= 'attributes: `Gene` or `Accession`.'
+            raise ValueError(msg)
+    else:
+        umis, genes = load_txt(infile)
+        genelist_col = 1 if by_gene_name else 0
+        candidate_names = genes[genelist_col]
+    ncells, ngenes = umis.shape
+
+    # load the reference order
+    ref = pd.read_csv(ref_file, delim_whitespace=True, header=None
+            )[genelist_col]
+    # select input column and process names unless told not to
+    if no_split_on_dot:
+        ingenes = genes[genelist_col]
+    else:
+        ref = ref.str.split('.').str[0]
+        ingenes = genes[genelist_col].str.split('.').str[0]
+
+    perm = []
+    try:
+        for g in ref:
+            perm.append(np.where(ingenes==g)[0][0])
+    except IndexError as e:
+        msg = 'Reference gene `{}` in ref_file `{}` not found in infile `{}`'
+        msg = msg.format(g, ref_file, infile)
+        raise ValueError(msg)
+
+    reordered_umis = umis.tocsr()[:,perm].tocoo()
+    reordered_genes = genes.loc[perm]
+    return reordered_umis, reordered_genes
