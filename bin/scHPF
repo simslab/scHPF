@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 
 from schpf import scHPF, load_model, save_model, run_trials
 from schpf.util import max_pairwise_table
-from schpf.preprocessing import load_coo, load_and_filter
+from schpf.preprocessing import load_coo, load_and_filter, load_like
 from schpf.preprocessing import split_validation_cells
 
 def _parser():
@@ -72,11 +72,41 @@ def _parser():
             ' id to filter (with whitelist or blacklist).  Useful for'
             ' datasets where only gene symbols are given. Applies to both'
             ' whitelist and blacklist. Used by default when input is a loom'
-            ' file.')
+            ' file (unless there is an Accession attribute in the loom).')
     prep.add_argument('--no-split-on-dot', default=False, action='store_true',
             help='Don\'t split gene symbol or name on period before '
             'filtering whitelist and blacklist. We do this by default for '
             'ENSEMBL ids.')
+
+
+    #### Prepare like
+    prep_like = subparsers.add_parser('prep-like')
+    # data
+    prep_like.add_argument('-i', '--input', required=True,
+            help='Input data to format. Currently accepts either: (1) a'
+            ' whitespace-delimited gene by cell UMI count matrix with 2'
+            ' leading columns of gene attributes (ENSEMBL_ID and GENE_NAME'
+            ' respectively), or (2) a loom file with at least one of the row'
+            ' attributes `Accession` or `Gene`, where `Accession` is an'
+            ' ENSEMBL id and `Gene` is the name.')
+    prep_like.add_argument('-r', '--reference', required=True,
+            help='Two-column tab-delimited file of ENSEMBL ids and gene names'
+            ' to select from `input` and order like. All genes in `reference`'
+            ' must be present in `input`.')
+    prep_like.add_argument('-o', '--outdir', required=True,
+            help='Output directory. Does not need to exist.')
+    prep_like.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+    # other options
+    prep_like.add_argument('--by-gene-name', default=False, 
+            action='store_true', help='Use gene name rather than ENSEMBL'
+            ' id to when matching against reference.  Useful for datasets'
+            ' where only gene symbols are given. Used by default when input'
+            ' is a loom file (unless there is an Accession attr in the loom).')
+    prep_like.add_argument('--no-split-on-dot', default=False, action='store_true',
+            help='Don\'t split gene symbol or name on period before'
+            ' when matching to reference. We do this by default for ENSEMBL'
+            ' ids.')
 
 
     ###### Train command
@@ -153,6 +183,18 @@ def _parser():
             'to the last column\'s index. [Default 1]'
         )
 
+
+    # ###### Project command
+    # proj = subparsers.add_parser('project')
+    # # data and saving
+    # proj.add_argument('-m', '--model', required=True,
+            # help='The model to project onto.')
+    # proj.add_argument('-d', '--projection-data', required=True,
+            # )
+    # proj.add_argument('-mg', '--model-genes', required=True,
+            # help='Two-column tab-delimited file of ENSEMBL ids and gene names'
+            # ' for ghe genes in the model we are projecting onto.')
+
     return parser
 
 
@@ -195,6 +237,19 @@ if __name__=='__main__':
                     field='integer')
             np.savetxt('{}validation_cell_ix.txt'.format(outprefix), vld_ix, 
                     fmt='%d')
+
+
+    elif args.cmd == 'prep-like':
+        print('Loading and reordering input like reference.... ')
+        filtered, genes = load_like(args.input, reference=args.reference,
+                by_gene_name=args.by_gene_name, 
+                no_split_on_dot=args.no_split_on_dot)
+        print('Writing prepared data to file.....')
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+        outprefix = '{}/{}'.format(args.outdir, prefix)
+        mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
+        genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
+                index=None)
 
 
     elif args.cmd == 'train':
