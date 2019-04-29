@@ -131,6 +131,7 @@ def test_project(data, dtype):
     # setup model for a_data
     a_model = scHPF(5, dtype=dtype)
     a_model._initialize(a_data)
+    bp = a_model.bp
 
     #project b_model
     b_model = a_model.project(b_data)
@@ -140,6 +141,12 @@ def test_project(data, dtype):
     # check cells different
     assert_equal(a_model.ncells, a_data.shape[0])
     assert_equal(b_model.ncells, b_data.shape[0])
+    # check bp unchanged
+    assert_equal(b_model.bp, bp)
+
+    # check bp updates when we want
+    c_model = a_model.project(b_data, recalc_bp=True)
+    assert c_model.bp != bp
 
 
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])

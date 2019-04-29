@@ -364,8 +364,8 @@ class scHPF(BaseEstimator):
         return self
 
 
-    def project(self, X, replace=False, min_iter=2, max_iter=10, check_freq=2,
-            **kwargs):
+    def project(self, X, recalc_bp=False, replace=False, min_iter=2, max_iter=30,
+            check_freq=2, **kwargs):
         """Project new cells into latent space
 
         Gene distributions (beta and eta) are fixed.
@@ -374,8 +374,11 @@ class scHPF(BaseEstimator):
         ----------
         X: coo_matrix
             Data to project.  Should have self.ngenes columns
+        recalc_bp : bool, optional (Default: False)
+            Recalculated value of empirical hyperparameter bp. Do not do this
+            for withheld text data.
         replace: bool, optional (Default: False)
-            Replace theta, xi, and bp with projected values in self. Note that
+            Replace theta and xi with projected values in self. Note that
             loss will not be updated
         min_iter: int, (Default: 2)
             Replaces self.min_iter if not None. Few iterations are needed
@@ -394,10 +397,17 @@ class scHPF(BaseEstimator):
             same variational distributions as self for gene distributions
             beta and eta. If replace=`True`, then the loss for the projection
             (xi and theta will be updated in self but not returned). In both
-            cases, bp will only be updated for the new data if self.bp==None.
+            cases, bp will only be updated for the new data if self.bp==None or
+            recalc_bp=`True`.
 
         """
-        (_, _, xi, _, theta, _, loss) = self._fit(X,
+        if replace and recalc_bp:
+            msg = 'Cannot replace `bp` with recalculated value'
+            raise ValueError(msg)
+
+        model = self if replace else deepcopy(self)
+        if recalc_bp: model.bp = None
+        (bp, _, xi, _, theta, _, loss) = model._fit(X,
                 min_iter=min_iter, max_iter=max_iter, check_freq=check_freq,
                 freeze_genes=True, **kwargs)
         if replace:
@@ -405,11 +415,11 @@ class scHPF(BaseEstimator):
             self.theta = theta
             return loss
         else:
-            new_scHPF = deepcopy(self)
-            new_scHPF.xi = xi
-            new_scHPF.theta = theta
-            new_scHPF.loss = loss
-            return new_scHPF
+            model.bp = bp
+            model.xi = xi
+            model.theta = theta
+            model.loss = loss
+            return model
 
 
     def _score(self, capacity, loading):
@@ -887,7 +897,7 @@ def run_trials(X, nfactors,
             proj_kwargs = dict(reinit=False,
                                min_iter=1,
                                max_iter=min(10, check_freq),
-                               check_freq=check_freq+1,
+                               check_freq= check_freq+1,
                                verbose=False
                                )
             data_loss_function = ls.projection_loss_function(
