@@ -443,7 +443,7 @@ class scHPF(BaseEstimator):
 
 
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
-            min_iter=None, max_iter=None, check_freq=None,
+            min_iter=None, max_iter=None, epsilon=None, check_freq=None,
             checkstep_function=None, verbose=None):
         """Combined internal fit/transform function
 
@@ -473,6 +473,9 @@ class scHPF(BaseEstimator):
         max_iter: int (optional, default None)
             Replaces self.max_iter if given.  Useful when projecting
             new data onto an existing scHPF model.
+        epsilon: float (optional, default None)
+            Replaces self.epsilon if given. Percent change of loss for
+            convergence.
         check_freq : int, optional (Default: None)
             Replaces self.check_freq if given.  Useful when projecting
             new data onto an existing scHPF model.
@@ -527,6 +530,7 @@ class scHPF(BaseEstimator):
         # check variable overrides
         min_iter = self.min_iter if min_iter is None else min_iter
         max_iter = self.max_iter if max_iter is None else max_iter
+        epsilon = self.epsilon if epsilon is None else epsilon
         check_freq = self.check_freq if check_freq is None else check_freq
         verbose = self.verbose if verbose is None else verbose
         for t in range(max_iter):

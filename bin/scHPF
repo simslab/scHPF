@@ -185,15 +185,37 @@ def _parser():
 
 
     # ###### Project command
-    # proj = subparsers.add_parser('project')
-    # # data and saving
-    # proj.add_argument('-m', '--model', required=True,
-            # help='The model to project onto.')
-    # proj.add_argument('-d', '--projection-data', required=True,
-            # )
-    # proj.add_argument('-mg', '--model-genes', required=True,
-            # help='Two-column tab-delimited file of ENSEMBL ids and gene names'
-            # ' for ghe genes in the model we are projecting onto.')
+    proj = subparsers.add_parser('project')
+    # data and saving
+    proj.add_argument('-m', '--model', required=True,
+            help='The model to project onto.')
+    proj.add_argument('-i', '--input', required=True,
+            help='Data to project onto model. Expects either the mtx file'
+            ' output by the prep or prep-like commands or a tab-delimitted'
+            ' tsv file formated like: `CELL_ID\tGENE_ID\tUMI_COUNT`. In the'
+            ' later case, ids are assumed to be 0 indexed and we assume no'
+            ' duplicates.')
+    proj.add_argument('-o', '--outdir', required=True,
+            help='Output directory for projected scHPF model. Will be created'
+            ' if does not exist.')
+    proj.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+
+    # projection-specific args
+    proj.add_argument('--recalc-bp', action='store_true',
+            help='Recalculate hyperparameter bp for the new data')
+
+    # Training parameters (same as train, different defaults, no short names)
+    proj.add_argument('--max-iter', type=int, default=500,
+            help='Maximum iterations. [Default 500].')
+    proj.add_argument('--min-iter', type=int, default=10,
+            help='Minimum iterations. [Default 10]')
+    proj.add_argument('--epsilon', type=float, default=0.001,
+            help='Minimum percent decrease in loss between checks to continue '
+            'inference (convergence criteria). [Default 0.001].')
+    proj.add_argument('--check_freq', type=int, default=10,
+            help='Number of iterations to run between convergence checks. '
+            '[Default 10].')
 
     return parser
 
@@ -301,8 +323,6 @@ if __name__=='__main__':
             print('Computing final validation projection....')
             projection = model.project(vcells, replace=False)
             print('Saving validation projection.....')
-            proj_out = '{}scHPF_K{}_epsilon{}_{}trials.validation_proj.joblib'.format(
-                    outprefix, args.nfactors, args.epsilon, args.ntrials)
             save_model(projection, model_outprefix + '.validaton_proj.joblib')
 
 
@@ -349,3 +369,26 @@ if __name__=='__main__':
             print('Saving ranked genes.....')
             np.savetxt(outprefix + 'ranked_genes.txt', ranked_genes, 
                     fmt="%s", delimiter='\t')
+
+
+    elif args.cmd == 'project':
+        print('Loading reference model.....')
+        model = load_model(args.model)
+        print('Loading data.....')
+        load_fnc = mmread if args.input.endswith('.mtx') else load_coo
+        proj_data = load_fnc(args.input)
+        print('Projecting data.....')
+        projection = model.project(proj_data, replace=False, verbose=True,
+                                   recalc_bp=args.recalc_bp,
+                                   min_iter=args.min_iter, 
+                                   max_iter=args.max_iter, 
+                                   check_freq=args.check_freq, 
+                                   epsilon=args.epsilon, )
+        print('Saving projection.....')
+        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+        outprefix = '{}/{}'.format(args.outdir, prefix)
+        if args.recalc_bp:
+            outprefix += '.{}'.format('recalc_bp')
+        proj_out = '{}{}.proj.joblib'.format(outprefix, 
+                args.model.rsplit('.',1)[0].split('/')[-1])
+        save_model(projection, proj_out)
