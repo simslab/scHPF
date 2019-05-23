@@ -345,8 +345,15 @@ if __name__=='__main__':
 
         print('Calculating maximum pairwise overlaps.....')
         table = max_pairwise_table(gene_score, 
-                ntop_list=[50,100,150,200,250,300])
+                ntop_list=[50,100,150,200,250,300,350,400,450,500])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
+        # Make second table w/percent cutoffs
+        percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
+        p_ntop = [int(p*len(gene_score)) for p in percents]
+        table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
+        table2['percent'] = percents # add percent column
+        table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
+        table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', index=False)
 
         if args.genefile is not None:
             print('Ranking genes.....')
