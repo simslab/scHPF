@@ -543,14 +543,6 @@ class scHPF(BaseEstimator):
                                             theta.vi_shape, theta.vi_rate,
                                             beta.vi_shape, beta.vi_rate)
 
-            # gene updates (if not frozen)
-            if not freeze_genes:
-                beta.vi_shape = compute_loading_shape_update(Xphi_data, X.col,
-                        ngenes, c)
-                beta.vi_rate = compute_loading_rate_update(eta.vi_shape,
-                        eta.vi_rate, theta.vi_shape, theta.vi_rate)
-                eta.vi_rate = dp + beta.e_x.sum(1)
-
             # cell updates
             theta.vi_shape = compute_loading_shape_update(Xphi_data, X.row,
                                                           ncells, a)
@@ -558,6 +550,13 @@ class scHPF(BaseEstimator):
                     beta.vi_shape, beta.vi_rate)
             xi.vi_rate = bp + theta.e_x.sum(1)
 
+            # gene updates (if not frozen)
+            if not freeze_genes:
+                beta.vi_shape = compute_loading_shape_update(Xphi_data, X.col,
+                        ngenes, c)
+                beta.vi_rate = compute_loading_rate_update(eta.vi_shape,
+                        eta.vi_rate, theta.vi_shape, theta.vi_rate)
+                eta.vi_rate = dp + beta.e_x.sum(1)
 
             # record llh/percent change and check for convergence
             if t % check_freq == 0:
