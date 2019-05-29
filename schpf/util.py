@@ -8,6 +8,39 @@ from scipy.sparse import csr_matrix
 import pandas as pd
 
 
+def mean_cellscore_fraction(cell_scores, ntop_factors=1):
+    """ Get number of cells with a percentage of their total scores
+    on a small number of factors
+
+    Parameters
+    ----------
+    cell_scores : ndarray
+        (ncells, nfactors) array of cell scores
+    ntop_factors : int, optional (Default: 1)
+        number of factors that can count towards domance
+
+    Returns
+    -------
+    mean_cellscore_fraction : float
+        The mean fraction of cells' scores that are contained within
+        their top `ntop_factors` highest scoring factors
+
+    """
+    totals = np.sum(cell_scores, axis=1)
+    ntop_scores = np.sort(cell_scores,axis=1)[:, -ntop_factors:]
+    domsum = np.sum(ntop_scores, axis=1)
+    domfrac = domsum/totals
+    return np.mean(domfrac)
+
+
+def mean_cellscore_fraction_list(cell_scores):
+    """ Make a list of the mean dominant fraction at all possible numbers
+        of ntop_factors
+    """
+    return [mean_cellscore_fraction(cell_scores, i+1)
+                for i in range(cell_scores.shape[1])]
+
+
 def max_pairwise(gene_scores, ntop=200, second_greatest=False):
     """ Get the maximum pairwise overlap of top genes
 

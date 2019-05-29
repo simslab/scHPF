@@ -7,6 +7,17 @@ import pytest
 
 from schpf import max_pairwise, max_pairwise_table
 from schpf.util import split_coo_rows, collapse_coo_rows, insert_coo_rows
+from schpf.util import mean_cellscore_fraction
+
+
+def test_mean_cellscore_fraction():
+    X = np.array([
+            [10, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [10, 10, 1, 1, 1],
+            [1, 1, 1, 1, 10]])
+    assert_equal(mean_cellscore_fraction(X, 5), 1.0)
+    assert np.abs(mean_cellscore_fraction(X, 1) - 0.5) < 0.02
 
 
 def test_overlap():

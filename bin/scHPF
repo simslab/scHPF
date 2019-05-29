@@ -9,7 +9,7 @@ from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
 from schpf import scHPF, load_model, save_model, run_trials
-from schpf.util import max_pairwise_table
+from schpf.util import max_pairwise_table, mean_cellscore_fraction_list
 from schpf.preprocessing import load_coo, load_and_filter, load_like
 from schpf.preprocessing import split_validation_cells
 
@@ -166,8 +166,10 @@ def _parser():
     score.add_argument('-m', '--model', required=True,
             help='Saved scHPF model from train command. Should have extension' 
             '`.joblib`')
-    score.add_argument('-o', '--outdir', required=True,
-            help='Output directory for score files')
+    score.add_argument('-o', '--outdir', default=None,
+            help='Output directory for score files. If not given, a new'
+            ' subdirectory of the dir containing the model will be made with'
+            ' the same name as the model file (without extension)')
     score.add_argument('-p', '--prefix', default='',
             help='Prefix for output files. Optional.')
     score.add_argument('-g', '--genefile', default=None,
@@ -224,7 +226,7 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
-    if not os.path.exists(args.outdir):
+    if args.outdir is not None and not os.path.exists(args.outdir):
         print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
 
@@ -338,10 +340,22 @@ if __name__=='__main__':
         gene_score = model.gene_score()
 
         print('Saving scores.....')
+        if args.outdir is None:
+            outdir = args.model.split('.joblib')[0]
+            os.makedirs(outdir)
+        else:
+            outdir = args.outdir
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
+        outprefix = '{}/{}'.format(outdir, prefix)
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
+
+        print('Calculating mean cellscore fractions.....')
+        frac_list = mean_cellscore_fraction_list(cell_score)
+        with open(outprefix + 'mean_cellscore_fraction.txt', 'w') as h:
+            h.write('nfactors\tmean_cellscore_fraction\n')
+            for i,csf in enumerate(frac_list):
+                h.write('{}\t{}\n'.format(i,csf))
 
         print('Calculating maximum pairwise overlaps.....')
         table = max_pairwise_table(gene_score, 
@@ -353,7 +367,8 @@ if __name__=='__main__':
         table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
         table2['percent'] = percents # add percent column
         table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
-        table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', index=False)
+        table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
+                index=False)
 
         if args.genefile is not None:
             print('Ranking genes.....')
