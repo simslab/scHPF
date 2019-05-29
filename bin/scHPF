@@ -342,7 +342,8 @@ if __name__=='__main__':
         print('Saving scores.....')
         if args.outdir is None:
             outdir = args.model.split('.joblib')[0]
-            os.makedirs(outdir)
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
         else:
             outdir = args.outdir
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
@@ -355,7 +356,7 @@ if __name__=='__main__':
         with open(outprefix + 'mean_cellscore_fraction.txt', 'w') as h:
             h.write('nfactors\tmean_cellscore_fraction\n')
             for i,csf in enumerate(frac_list):
-                h.write('{}\t{}\n'.format(i,csf))
+                h.write('{}\t{}\n'.format(i+1,csf))
 
         print('Calculating maximum pairwise overlaps.....')
         table = max_pairwise_table(gene_score, 
