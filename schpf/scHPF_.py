@@ -13,6 +13,7 @@ from sklearn.externals import joblib
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
 import schpf.loss as ls
+import schpf
 
 
 class HPF_Gamma(object):
@@ -236,6 +237,7 @@ class scHPF(BaseEstimator):
             verbose=True,
             ):
         """Initialize HPF instance"""
+        self.version = schpf.__version__
         self.nfactors = nfactors
         self.a = a
         self.ap = ap

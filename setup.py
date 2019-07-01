@@ -2,7 +2,8 @@
 
 from setuptools import find_packages, setup
 
-__version__ = '0.2.5'
+with open('./VERSION') as f:
+    __version__ = f.read()
 
 requires = ['scikit-learn',
             'numba >=0.35, <=0.40',
