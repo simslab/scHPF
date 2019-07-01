@@ -11,12 +11,13 @@ scHPF requires Python >= 3.6 and the packages:
 - numba <=0.40, >=0.35 (numba 0.41 reduces scHPF's performance. Currently working to resolve.)
 - scikit-learn
 - pandas
+- joblib
 - (optional) loompy
 
 
 The easiest way to setup a python environment for scHPF is with [anaconda](https://www.continuum.io/downloads).
 ```
-conda create -n schpf_p37 python=3.7 scikit-learn numba=0.40 pandas
+conda create -n schpf_p37 python=3.7 scikit-learn numba=0.40 pandas joblib
 
 # older anaconda
 source activate schpf_p37

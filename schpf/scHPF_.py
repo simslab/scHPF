@@ -4,6 +4,8 @@ from copy import deepcopy
 from warnings import warn
 
 import numpy as np
+from sklearn.base import BaseEstimator
+import joblib
 from scipy.sparse import coo_matrix
 from scipy.special import digamma, gammaln, psi
 try:
@@ -11,8 +13,6 @@ try:
 except ImportError:
     from scipy.special import logsumexp
 
-from sklearn.base import BaseEstimator
-from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *

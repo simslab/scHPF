@@ -9,7 +9,8 @@ requires = ['scikit-learn',
             'numba >=0.35, <=0.40',
             'scipy >= 1.1',
             'numpy',
-            'pandas'
+            'pandas',
+            'joblib' # new requirement because deprecated in scikit-learn
             ]
 
 tests_require = ['pytest']
