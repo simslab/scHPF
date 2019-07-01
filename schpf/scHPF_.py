@@ -5,8 +5,12 @@ from warnings import warn
 
 import numpy as np
 from scipy.sparse import coo_matrix
-from scipy.misc import logsumexp
 from scipy.special import digamma, gammaln, psi
+try:
+    from scipy.misc import logsumexp
+except ImportError:
+    from scipy.special import logsumexp
+
 from sklearn.base import BaseEstimator
 from sklearn.externals import joblib
 
