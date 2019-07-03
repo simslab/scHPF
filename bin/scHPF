@@ -2,6 +2,8 @@
 
 import os
 import argparse
+import json
+import time
 
 import numpy as np
 import pandas as pd
@@ -154,15 +156,15 @@ def _parser():
             help= 'Stop condition if loss is getting worse.  Stops training '
             'if loss is worse than `better_than_n_ago`*`check_freq` training '
             'steps ago and getting worse. Normally not necessary to change.')
+    train.add_argument('-a', type=float, default=0.3,
+            help='Value for hyperparameter a. [Default 0.3]')
+    train.add_argument('-c', type=float, default=0.3,
+            help='Value for hyperparameter c. [Default 0.3]')
     train.add_argument('--quiet', dest='verbose', action='store_false', 
             default=True, help="Don't print intermediate llh.")
     train.add_argument('--float32', action='store_true',
             help="Use 32-bit floats instead of default 64-bit floats in "
             "variational distrubtions")
-    train.add_argument('-a', type=float, default=0.3,
-            help='Value for hyperparameter a [Default 0.3]')
-    train.add_argument('-c', type=float, default=0.3,
-            help='Value for hyperparameter c [Default 0.3]')
 
 
     ### Score command
@@ -266,6 +268,12 @@ if __name__=='__main__':
             np.savetxt('{}validation_cell_ix.txt'.format(outprefix), vld_ix, 
                     fmt='%d')
 
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}prep_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
+
+
 
     elif args.cmd == 'prep-like':
         print('Loading and reordering input like reference.... ')
@@ -278,6 +286,10 @@ if __name__=='__main__':
         mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}prep-like_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
 
 
     elif args.cmd == 'train':
@@ -320,7 +332,7 @@ if __name__=='__main__':
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
         model_outprefix = '{}scHPF_K{}_{}trials'.format(
-                    outprefix, args.nfactors, args.epsilon, args.ntrials)
+                    outprefix, args.nfactors, args.ntrials)
         if vcells is None:
             print('Saving best model.....')
             save_model(model, model_outprefix + '.joblib')
@@ -333,6 +345,13 @@ if __name__=='__main__':
             print('Saving validation projection.....')
             save_model(projection, model_outprefix + '.validaton_proj.joblib')
 
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}train_commandline_args.json'.format(outprefix)
+        if os.path.exists(cmdfile):
+            cmdfile = '{}train_commandline_args.{}.json'.format(outprefix, 
+                    time.strftime("%Y%m%d-%H%M%S"))
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
 
         print('\n')
 
@@ -399,6 +418,10 @@ if __name__=='__main__':
             np.savetxt(outprefix + 'ranked_genes.txt', ranked_genes, 
                     fmt="%s", delimiter='\t')
 
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}score_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2) 
 
     elif args.cmd == 'project':
         print('Loading reference model.....')
@@ -421,3 +444,8 @@ if __name__=='__main__':
         proj_out = '{}{}.proj.joblib'.format(outprefix, 
                 args.model.rsplit('.',1)[0].split('/')[-1])
         save_model(projection, proj_out)
+
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}project_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
