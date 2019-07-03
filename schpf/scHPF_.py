@@ -822,7 +822,8 @@ def run_trials(X, nfactors,
         verbose=True,
         vcells = None,
         vX = None,
-        loss_function=None
+        loss_function=None,
+        model_kwargs = {}
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -836,34 +837,37 @@ def run_trials(X, nfactors,
         Data to fit
     nfactors: int
         Number of factors (K)
-    ntrials : int (optional, default 5)
+    ntrials : int,  optional (Default 5)
         Number of random initializations for training
-    min_iter: int (optional, default 30):
+    min_iter: int, optional (Default 30)
         Minimum number of interations for training.
-    max_iter: int (optional, default 1000):
+    max_iter: int, optional (Default 1000):
         Maximum number of interations for training.
-    check_freq: int (optional, default 10)
+    check_freq: int, optional (Default 10)
         Number of training iterations between calculating loss.
-    epsilon: float (optional, default 0.001)
+    epsilon: float, optional (Default 0.001)
         Percent change of loss for convergence.
-    better_than_n_ago: int (optional, default 5)
+    better_than_n_ago: int, optional (Default 5)
         Stop condition if loss is getting worse.  Stops training if loss
         is worse than `better_than_n_ago`*`check_freq` training steps
         ago and getting worse.
-    dtype : datatype, optional, default np.float64
+    dtype : datatype, optional (Default np.float64)
         np.float64 or np.float32
-    verbose: bool, optional, default True
+    verbose: bool, optional (Default True)
         verbose
-    vcells : coo_matrix, optional, default None
+    vcells : coo_matrix, optional (Default None)
         cells to use in a validation loss function
-    vX : coo_matrix, optional, default None
+    vX : coo_matrix, optional (Default None)
         nonzero entries from the cells in vX
-    loss_function : function, optional, default None
+    loss_function : function, optional (Default None)
         A loss function that accepts data, model variational parameters,
         and model hyperparameters.  Note this is distinct from the
         `loss_function` argument in scHPF._fit (called by scHPF.fit and
         scHPF.project), which assumes a fixed reference to data is included
         in the function and *does not* accept data as an argument.
+    model_kwargs: dict, optional (Default {})
+        dictionary of additional keyword arguments for model
+        initialization
 
 
     Returns
@@ -899,6 +903,7 @@ def run_trials(X, nfactors,
                     check_freq=check_freq, epsilon=epsilon,
                     better_than_n_ago=better_than_n_ago,
                     verbose=verbose, dtype=dtype,
+                    **model_kwargs
                     )
 
         # override the loss function data if we have vcells

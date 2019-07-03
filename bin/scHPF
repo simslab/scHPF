@@ -159,6 +159,10 @@ def _parser():
     train.add_argument('--float32', action='store_true',
             help="Use 32-bit floats instead of default 64-bit floats in "
             "variational distrubtions")
+    train.add_argument('-a', type=float, default=0.3,
+            help='Value for hyperparameter a [Default 0.3]')
+    train.add_argument('-c', type=float, default=0.3,
+            help='Value for hyperparameter c [Default 0.3]')
 
 
     ### Score command
@@ -303,17 +307,19 @@ if __name__=='__main__':
         # create model
         print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
+        model_kwargs = dict(a=args.a, c=args.c)
         model = run_trials(train, vcells=vcells,
                     nfactors=args.nfactors, ntrials=args.ntrials,
                     min_iter=args.min_iter, max_iter=args.max_iter,
                     check_freq=args.check_freq, epsilon=args.epsilon,
                     better_than_n_ago=args.better_than_n_ago,
-                    dtype=dtype, verbose=args.verbose)
+                    dtype=dtype, verbose=args.verbose,
+                    model_kwargs=model_kwargs)
 
         # save the model
         prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
         outprefix = '{}/{}'.format(args.outdir, prefix)
-        model_outprefix = '{}scHPF_K{}_epsilon{}_{}trials'.format(
+        model_outprefix = '{}scHPF_K{}_{}trials'.format(
                     outprefix, args.nfactors, args.epsilon, args.ntrials)
         if vcells is None:
             print('Saving best model.....')
