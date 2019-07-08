@@ -328,6 +328,7 @@ def split_validation_cells(X, nselect, group_id_file='', max_group_frac=0.5,
 def load_and_filter(infile, min_cells, whitelist='', blacklist='',
         filter_by_gene_name=False, no_split_on_dot=False, verbose=True):
     """ Composite of loading and filtering intended for use by CLI
+
     Parameters
     ----------
     infile : str

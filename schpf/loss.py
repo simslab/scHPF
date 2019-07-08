@@ -51,7 +51,7 @@ def projection_loss_function(loss_function, X, nfactors,
         additional keyword arguments for scHPF()
     proj_kwargs : dict, optional
         additional keyword arguments for scHPF.project(). By default,
-        `max_iter`=5,
+        max_iter=5,
 
 
     Returns
