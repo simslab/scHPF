@@ -18,9 +18,10 @@ NGENES = 500
 
 # TODO figure out how to get this without going this far up tree or doubling
 # perhaps make a small copy?
-PROTEIN_CODING = str(Path(*Path(__file__).parts[:-3]) / Path(
+PROTEIN_CODING = str(
+    Path(*Path(__file__).parts[:-2]) / Path(
         'resources/gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt'))
-BLIST = str(Path(__file__).parent /  Path('_data/sample_blacklist.txt'))
+BLIST = str( Path(__file__).parent /  Path('_data/sample_blacklist.txt') )
 
 
 @pytest.fixture()
