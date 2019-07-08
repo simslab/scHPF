@@ -47,7 +47,7 @@ scHPF prep currently accepts two input file formats:
 #### Filtering non-coding genes during preprocessing
 We recommend restricting analysis to protein-coding genes. The `-w`/`--whitelist` option removes all genes in the input data that are **not in** a two column, tab-delimited text file of ENSEMBL gene ids and names. 
 
-Whitelists for human and mouse are provided in the [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources).
+Sample whitelists for human and mouse are provided in the [resources folder](https://github.com/simslab/scHPF/tree/rewrite_release/resources), along with instructions for how to create a whitelists matching your GENCODE version.
 
 *Filtering txt input details:* For whitespace-delimited UMI-count files, filtering is performed using the input matrix's `ENSEMBL_ID` by default, but can be done with `GENE_NAME` using the `--filter-by-gene-name` flag. This is useful for data that does not include a gene id. 
 
