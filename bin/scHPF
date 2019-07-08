@@ -4,6 +4,7 @@ import os
 import argparse
 import json
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -232,9 +233,12 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
+    # setup paths and prefixes
     if args.outdir is not None and not os.path.exists(args.outdir):
         print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
+    prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+    outprefix = str( Path(args.outdir) / Path(prefix) )
 
     if args.cmd == 'prep':
         filtered, genes = load_and_filter(args.input, 
@@ -245,8 +249,6 @@ if __name__=='__main__':
                 no_split_on_dot=args.no_split_on_dot)
 
         print('Writing filtered data to file.....')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
         mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
@@ -281,8 +283,6 @@ if __name__=='__main__':
                 by_gene_name=args.by_gene_name, 
                 no_split_on_dot=args.no_split_on_dot)
         print('Writing prepared data to file.....')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
         mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
@@ -329,8 +329,6 @@ if __name__=='__main__':
                     model_kwargs=model_kwargs)
 
         # save the model
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
         model_outprefix = '{}scHPF_K{}_{}trials'.format(
                     outprefix, args.nfactors, args.ntrials)
         if vcells is None:
@@ -371,8 +369,6 @@ if __name__=='__main__':
                 os.makedirs(outdir)
         else:
             outdir = args.outdir
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(outdir, prefix)
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
 
@@ -437,8 +433,6 @@ if __name__=='__main__':
                                    check_freq=args.check_freq, 
                                    epsilon=args.epsilon, )
         print('Saving projection.....')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
         if args.recalc_bp:
             outprefix += '.{}'.format('recalc_bp')
         proj_out = '{}{}.proj.joblib'.format(outprefix, 
