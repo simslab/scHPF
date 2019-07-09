@@ -72,7 +72,7 @@ main annotation (in this case ``gencode.v29.annotation.gtf``) were generated as 
     awk '{if($12~"TR_C_g" || $12~"IG_C_g" || $12~"protein_coding"){print $0}}' gencode.v29.annotation.gene_l1l2.gtf > gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.gtf
 
     # Retrieve ENSEMBL gene id and name
-    awk '{{OFS="\t"}{gsub(/"/, "", $10); gsub(/;/, "", $10); gsub(/"/, "", $14); gsub(/;/, "", $14); print $10, $14}}' gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.gtf > gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt'")")}}'
+    awk '{{OFS="\t"}{gsub(/"/, "", $10); gsub(/;/, "", $10); gsub(/"/, "", $14); gsub(/;/, "", $14); print $10, $14}}' gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.gtf > gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt
 
 
 
