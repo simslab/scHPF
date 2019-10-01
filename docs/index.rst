@@ -33,12 +33,17 @@ You can find the software `on github <https://github.com/simslib/scHPF>`_.
     :maxdepth: 2
     :caption: Basic commandline workflow
 
+    prep-cli
+    train
+    score
+
 
 .. toctree::
     :maxdepth: 2
     :caption: Advanced options
 
     select_k
+    project
 
 
 

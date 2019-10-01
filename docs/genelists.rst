@@ -2,6 +2,8 @@
 .. _stable identifiers: https://useast.ensembl.org/info/genome/stable_ids/index.html
 .. _biotypes: https://www.gencodegenes.org/pages/biotypes.html
 
+.. _genelists:
+
 **********
 Gene lists
 **********
@@ -10,10 +12,11 @@ About
 =====
 We recommend restricting analysis to protein-coding genes, and bundle
 `premade lists`_ of coding genes for human and mouse with the scHPF code.  The 
-:ref:`prep CLI command <prep-cli>` optionally uses these lists to filter input 
+:ref:`prep CLI command<prep-cli>` optionally uses these lists to filter input 
 data.  Although ENSEMBL ids are theoretically unambiguous and consistent across
-releases (ie `stable identifiers`_), you may want to generate your own list from 
-a different annotation or with different parameters for gene inclusion. 
+releases (ie `stable identifiers`_), you may want to generate your own list 
+from a different annotation (that matches your alignment GENCODE version) or 
+with different parameters for gene inclusion (eg including lncRNA). 
 
 Premade lists
 =============
@@ -41,7 +44,7 @@ Example tab-delimited gene list::
 By default, the prep command assumes a two-column, tab-delimited text file of 
 ENSEMBL gene ids and names, and uses the first column (assumed to be ENSEMBL id) 
 to filter genes. See the  
-:ref:`prep command documentation <prep-cli>` for other options. 
+:ref:`prep command documentation<prep-cli>` for other options. 
 
 .. note::
     ENSEMBL ids may end in a period followed by an unstable version 
