@@ -2,8 +2,9 @@
 
 from setuptools import find_packages, setup
 
-with open('./VERSION') as f:
-    __version__ = f.read()
+# get version from file
+__version__ = '0.0.0'
+exec(open('schpf/_version.py').read())
 
 requires = ['scikit-learn',
             'numba >=0.35, <=0.40',
