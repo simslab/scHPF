@@ -5,7 +5,7 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 
 - [Documentation](https://schpf.readthedocs.io/en/latest/)
 - [Paper at Molecular Systems Biology](http://msb.embopress.org/content/15/2/e8557.full.pdf)
-- [Application to human tissue T cells](https://www.biorxiv.org/content/10.1101/555557v1)
+- [Application to human tissue T cells across multiple donors and tissues](https://www.biorxiv.org/content/10.1101/555557v1) 
 
 ##  Installation
 ### Environment & Dependencies
@@ -31,16 +31,16 @@ cd scHPF
 pip install .
 ```
 
-## Quick Start: scHPF Command Line Interface (CLI) 
+## Quick Start: Command Line Interface
 
 1. [Prepare your data](https://schpf.readthedocs.io/en/latest/prep-cli.html). 
 
 2. [Train a model](https://schpf.readthedocs.io/en/latest/train-cli.html).
 
-3. [Get gene and cell scores with the CLI](https://schpf.readthedocs.io/en/latest/score-cli.html)
+3. [Get gene and cell scores](https://schpf.readthedocs.io/en/latest/score-cli.html)
 
 
-## scHPF API
+## API
 
 scHPF has a scikit-learn like API. Trained models are stored in a serialized
 joblib format.
