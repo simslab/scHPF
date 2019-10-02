@@ -4,7 +4,6 @@ import os
 import argparse
 import json
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -239,7 +238,7 @@ if __name__=='__main__':
         print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
     prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-    outprefix = str( Path(args.outdir) / Path(prefix) )
+    outprefix = args.outdir + '/' +  prefix
 
     if args.cmd == 'prep':
         filtered, genes = load_and_filter(args.input, 
