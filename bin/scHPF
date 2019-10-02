@@ -138,7 +138,8 @@ def _parser():
             ' [Default 1]')
     train.add_argument('-v', '--validation-cells', default=None,
             help='Cells to use to assess convergence and choose a model.'
-            ' Expects same format as `-i/--input`.'
+            ' Expects same format as ``-i/--input``. Training data used by'
+            ' default.'
             )
     # train.add_argument('-vnz', '--validation-nonzero', 
             # help='Validation data of selected nonzero entries. Must have same '
@@ -183,13 +184,13 @@ def _parser():
             help='Create an additional file with gene names ranked by score '
             'for each factor. Expects the gene.txt file output by the scHPF '
             'prep command or a similarly formatted tab-delimited file without '
-            'headers. Uses the zero-indexed `--name_col`\'th column as gene '
+            'headers. Uses the zero-indexed ``--name_col``\'th column as gene '
             'names. Optional.')
     score.add_argument('--name-col', type=int, default=1,
             help='The zero-indexed column of `genefile` to use as a gene name '
-            'when (optionally) ranking genes. If `--name_col` is greater than '
-            'the index of `genefile`\'s last column, it is automatically reset '
-            'to the last column\'s index. [Default 1]'
+            'when (optionally) ranking genes. If ``--name_col`` is greater'
+            ' than the index of ``--genefile``\'s last column, it is '
+            ' automatically reset to the last column\'s index. [Default 1]'
         )
 
 
@@ -383,14 +384,14 @@ if __name__=='__main__':
         table = max_pairwise_table(gene_score, 
                 ntop_list=[50,100,150,200,250,300,350,400,450,500])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
-        # Make second table w/percent cutoffs
-        percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
-        p_ntop = [int(p*len(gene_score)) for p in percents]
-        table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
-        table2['percent'] = percents # add percent column
-        table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
-        table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
-                index=False)
+        # # Make second table w/percent cutoffs
+        # percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
+        # p_ntop = [int(p*len(gene_score)) for p in percents]
+        # table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
+        # table2['percent'] = percents # add percent column
+        # table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
+        # table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
+                # index=False)
 
         if args.genefile is not None:
             print('Ranking genes.....')
