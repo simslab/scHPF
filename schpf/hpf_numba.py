@@ -51,11 +51,12 @@ def compute_Xphi_data(X_data, X_row, X_col,
                      theta_vi_shape, theta_vi_rate,
                      beta_vi_shape, beta_vi_rate):
     """ Fast version of Xphi computation using numba & gsl_digamma
+
     Parameters
     ----------
-    X_data : ndarray (np.int32)
+    X_data : ndarray of np.int32
         (number_nonzero, ) array of nonzero values
-    X_row : ndarray (np.int32)
+    X_row : ndarray of np.int32
         (number_nonzero, ) array of row ids for each nonzero value
     X_col : ndarray (np.int32)
         (number_nonzero, ) array of column ids for each nonzero value
