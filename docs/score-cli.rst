@@ -35,8 +35,8 @@ If ``OUTDIR`` is omitted, the command will make a new subdirectory of the
 directory containing the model.  The new subdirectory will have the same name as
 the model file, but without the joblib extension.
 
-The command also outputs files which make be use for some methods of 
-:ref:`selecting the number of factors<select_k>`.
+The command also outputs files which can be used to 
+:ref:`select the number of factors<select-k>` using trained models.
 
 Complete options
 ================

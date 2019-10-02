@@ -80,4 +80,4 @@ main annotation (in this case ``gencode.v29.annotation.gtf``) were generated as 
 
 .. note:: 
     For older GENCODE versions, you  may need to  adjust the field indices in
-    the third line of code (for example changing all  instnaces of $14 to $16).
+    the third line of code (for example changing all instances of $14 to $16).

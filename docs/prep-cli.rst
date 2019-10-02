@@ -14,32 +14,28 @@ To preprocess genome-wide UMI counts for a typical run, use the command:
 
 .. code:: bash
 
-    scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 10 -w ~/scHPF/resources/gencode.v31.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt
+    scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 10 -w WHITELIST
 
 As written, the command prepares a 
 :ref:`matrix of molecular counts <matrix-format>` for training and only includes
 genes that are:
 
-- on a :ref:`whitelist<whitelist>` indicated by ``-w``/``--whitelist``, here a
-  list of protein coding genes in human that is bundled with the scHPF code
+- on a :ref:`whitelist<whitelist>`, for example one of the lists of protein
+  coding genes bundled in the scHPF code's reference folder
 
 - that we observe in at at least 10 cells (``-m``/``--min-cells``).
 
 After running this command, ``OUTDIR`` should contain a matrix market file,
-``train.mtx``, and an ordered list of genes, ``genes.txt``. An optional prefix
+``train.mtx``, and an ordered list of genes, ``genes.txt``.  An optional prefix
 argument can be added, which is prepended to to the output file names.
 
-
-For a complete list of options,  
 
 .. _matrix-format:
 
 Input matrix format
 ===================
 ``scHPF prep`` takes a molecular count matrix for an scRNA-seq experiment
-and formats it for training.  Note that scHPF is specifically designed for data
-with unique molecular identifiers (UMIs) and only accepts integer molecular
-counts.
+and formats it for training. The input matrix has two allowed formats:
 
 1. A **whitespace-delimited matrix** formatted as follows, with no header::
 
@@ -63,24 +59,8 @@ Symmetrically, the ``-b``/``--blacklist`` option removes all genes that are *in*
 a file.
 
 Whitelists for human and mouse are provided in the `resources folder`_, and
-details on construction/custom lists are in the 
+details on formatting  and custom lists are in the 
 :ref:`gene list documentation <genelists>`.
-
-Whitespace-delimited input
---------------------------
-For whitespace-delimited UMI-count files, filtering is performed using the input
-matrix's ``ENSEMBL_ID`` by default, but can be done with ``GENE_NAME`` using the
-``--filter-by-gene-name`` flag. This is useful for data that does not include a
-gene id.
-
-
-loom input
-----------
-For loom files, we filter the loom ``Accession`` row attribute against the
-whitelist's ``ENSEMBLE_ID`` if ``Accession`` is present in the loom's row
-attributes, and filter the loom's ``Gene`` row attribute against the
-``GENE_NAME`` in the whitelist otherwise.
-
 
 .. note::
     ENSEMBL ids may end in a period followed by an unstable version 
@@ -88,6 +68,21 @@ attributes, and filter the loom's ``Gene`` row attribute against the
     after the period. This means ``[ENS-ID].[VERSION]`` is equivalent to 
     ``[ENS-ID]``. This behavior can be overwritten with the
     ``--no-split-on-dot`` flag.
+
+Whitespace-delimited input matrix
+---------------------------------
+For whitespace-delimited UMI-count files, filtering is performed using the input
+matrix's first column (assumed to be a unique identifier) by default, but can be
+done with the gene name (next column) using the ``--filter-by-gene-name`` flag.
+This is useful for data that does not include a gene id.
+
+
+loom input matrix
+-----------------
+For loom files, we filter the loom ``Accession`` row attribute against the
+whitelist's ENSEMBLE if ``Accession`` is present in the loom's row attributes,
+and filter the loom's ``Gene`` row attribute against the gene name in the
+whitelist otherwise.
 
 
 .. _prep-options:

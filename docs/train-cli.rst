@@ -8,7 +8,7 @@ scHPF train
 
 Basic usage
 ===========
-To train an scHPF using data output from the |scHPF prep command|_:
+To train an scHPF model (using data prepared by the |scHPF prep command|_):
 
 .. |scHPF prep command| replace:: ``scHPF prep`` command
 .. _scHPF prep command: prep-cli.html
