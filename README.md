@@ -31,7 +31,7 @@ cd scHPF
 pip install .
 ```
 
-## scHPF Command Line Interface (CLI) Quickstart
+## Quick Start: scHPF Command Line Interface (CLI) 
 
 1. [Prepare your data](https://schpf.readthedocs.io/en/latest/prep-cli.html). 
 
