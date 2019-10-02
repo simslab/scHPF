@@ -6,17 +6,19 @@
 Single-cell Hierarchical Poisson Factorization
 ==============================================
 
-Single-cell Hierarchical Poisson Factorization (scHPF) is a tool for *de novo* discovery 
-of discrete and continuous expression patterns in single-cell RNA\-sequencing 
-(scRNA-seq). 
+Single-cell Hierarchical Poisson Factorization (scHPF) is a tool for *de novo*
+discovery of discrete and continuous expression patterns in single-cell
+RNA\-sequencing (scRNA-seq). 
 
-We find that scHPF’s sparse low-dimensional representations, non-negativity, 
-and explicit modeling of variable sparsity across genes and cells produces highly interpretable 
-factors.  The algorithm takes genome-wide molecular counts as input, avoids prior normalization, 
-and has fast, memory-efficient inference on sparse scRNA-seq datasets. 
+We find that scHPF’s sparse low-dimensional representations, non-negativity,
+and explicit modeling of variable sparsity across genes and cells produces
+highly interpretable factors.  The algorithm takes genome-wide molecular counts
+as input, avoids prior normalization, and has fast, memory-efficient inference
+on sparse scRNA-seq datasets. 
 
-Algorithmic details, benchmarking against alternative methods, and scHPF's 
-application to a spatially sampled high-grade glioma can be found in `our paper at Molecular Systems Biology`_.
+Algorithmic details, benchmarking against alternative methods, and scHPF's
+application to a spatially sampled high-grade glioma can be found in 
+`our paper at Molecular Systems Biology`_.
 
 .. _our paper at Molecular Systems Biology: https://doi.org/10.15252/msb.20188557
 

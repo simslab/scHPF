@@ -2,9 +2,9 @@
 
 .. _train-cli:
 
-**********
-Train CLI
-**********
+***********
+scHPF train
+***********
 
 Basic usage
 ===========

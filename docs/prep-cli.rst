@@ -4,7 +4,7 @@
 .. _prep-cli:
 
 **********
-Prep CLI
+scHPF prep
 **********
 
 Basic usage
