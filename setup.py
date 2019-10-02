@@ -15,7 +15,8 @@ requires = ['scikit-learn',
 
 tests_require = ['pytest']
 extras_require = {
-        'loompy_preprocessing' : ['loompy']
+        'loompy' : ['loompy'],
+        'docs' : ['sphinx-argparse']
         }
 
 setup(
