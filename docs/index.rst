@@ -43,7 +43,7 @@ You can find the software `on github <https://www.embopress.org/doi/full/10.1525
     :maxdepth: 2
     :caption: Advanced options
 
-    select_k
+    select-k
     project
 
 .. toctree::

@@ -7,6 +7,7 @@ Complete CLI Reference
 **********************
 
 .. _cli-prep:
+
 scHPF prep
 ==========
 
@@ -18,6 +19,7 @@ scHPF prep
 
 
 .. _cli-train:
+
 scHPF train
 ===========
 
@@ -29,6 +31,7 @@ scHPF train
 
 
 .. _cli-score:
+
 scHPF score
 ===========
 
@@ -40,6 +43,7 @@ scHPF score
 
 
 .. _cli-prep-like:
+
 scHPF prep-like
 ===============
 
@@ -51,6 +55,7 @@ scHPF prep-like
 
 
 .. _cli-project:
+
 scHPF project
 =============
 
