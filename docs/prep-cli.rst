@@ -26,12 +26,6 @@ genes that are:
 
 After running this command, ``OUTDIR`` should contain a matrix market file, ``train.mtx``, and an ordered list of genes, ``genes.txt``. An optional prefix argument can be added, which is prepended to to the output file names.
 
-More options and details for preprocessing can be viewed with
-
-.. code:: bash
-
-    scHPF prep -h
-
 
 .. _matrix-format:
 
@@ -91,10 +85,9 @@ attributes, and filter the loom's ``Gene`` row attribute against the
     ``--no-split-on-dot`` flag.
 
 
-All options
-===========
+Complete options
+================
 
-.. ``-m``/``--min-cells``
 .. argparse::
    :filename: ../bin/scHPF
    :func: _parser

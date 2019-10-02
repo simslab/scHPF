@@ -31,12 +31,11 @@ You can find the software `on github <https://github.com/simslib/scHPF>`_.
 
 .. toctree::
     :maxdepth: 2
-    :caption: Basic commandline workflow
+    :caption: Commandline workflow
 
     prep-cli
-    train
-    score
-
+    train-cli
+    score-cli
 
 .. toctree::
     :maxdepth: 2
@@ -44,8 +43,6 @@ You can find the software `on github <https://github.com/simslib/scHPF>`_.
 
     select_k
     project
-
-
 
 
 Indices and tables
