@@ -46,6 +46,12 @@ You can find the software `on github <https://github.com/simslib/scHPF>`_.
     select_k
     project
 
+.. toctree::
+    :maxdepth: 1
+    :caption: Misc
+    
+    changelog
+
 
 Indices and tables
 ==================
