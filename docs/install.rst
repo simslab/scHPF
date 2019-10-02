@@ -18,7 +18,7 @@ scHPF requires Python >= 3.6 and the packages:
 The easiest way to setup a python environment for scHPF is with `anaconda`_ (or its stripped-down version `miniconda`_):
 
 .. _anaconda: https://www.anaconda.com/distribution
-.. _minconda: https://www.continuum.io/en/latest/miniconda.html
+.. _miniconda: https://www.continuum.io/en/latest/miniconda.html
 
 .. code:: bash
 

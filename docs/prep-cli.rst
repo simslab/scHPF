@@ -7,8 +7,8 @@
 Prep CLI
 **********
 
-scHPF prep
-==========
+Basic usage
+===========
 
 To preprocess genome-wide UMI counts for a typical run, use the command:
 
@@ -22,7 +22,7 @@ genes that are:
 
 - on the :ref:`whitelist<whitelist>` and
 
-- that we observe in at least 10 cells.
+- that we observe in at at least 10 cells.
 
 After running this command, ``OUTDIR`` should contain a matrix market file, ``train.mtx``, and an ordered list of genes, ``genes.txt``. An optional prefix argument can be added, which is prepended to to the output file names.
 
@@ -82,3 +82,21 @@ whitelist's ``ENSEMBLE_ID`` if ``Accession`` is present in the loom's row
 attributes, and filter the loom's ``Gene`` row attribute against the
 ``GENE_NAME`` in the whitelist otherwise.
 
+
+.. note::
+    ENSEMBL ids may end in a period followed by an unstable version 
+    number (eg ENSG00000186092.6). By default, the prep command ignores anything 
+    after the period. This means ``[ENS-ID].[VERSION]`` is equivalent to 
+    ``[ENS-ID]``. This behavior can be overwritten with the
+    ``--no-split-on-dot`` flag.
+
+
+All options
+===========
+
+.. ``-m``/``--min-cells``
+.. argparse::
+   :filename: ../bin/scHPF
+   :func: _parser
+   :prog: scHPF
+   :path: prep
