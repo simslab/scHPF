@@ -14,18 +14,23 @@ To preprocess genome-wide UMI counts for a typical run, use the command:
 
 .. code:: bash
 
-    scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 10 -w GENE_WHITELIST
+    scHPF prep -i UMICOUNT_MATRIX -o OUTDIR -m 10 -w ~/scHPF/resources/gencode.v31.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt
 
 As written, the command prepares a 
 :ref:`matrix of molecular counts <matrix-format>` for training and only includes
 genes that are:
 
-- on the :ref:`whitelist<whitelist>` and
+- on a :ref:`whitelist<whitelist>` indicated by ``-w``/``--whitelist``, here a
+  list of protein coding genes in human that is bundled with the scHPF code
 
-- that we observe in at at least 10 cells.
+- that we observe in at at least 10 cells (``-m``/``--min-cells``).
 
-After running this command, ``OUTDIR`` should contain a matrix market file, ``train.mtx``, and an ordered list of genes, ``genes.txt``. An optional prefix argument can be added, which is prepended to to the output file names.
+After running this command, ``OUTDIR`` should contain a matrix market file,
+``train.mtx``, and an ordered list of genes, ``genes.txt``. An optional prefix
+argument can be added, which is prepended to to the output file names.
 
+
+For a complete list of options,  
 
 .. _matrix-format:
 
@@ -85,11 +90,15 @@ attributes, and filter the loom's ``Gene`` row attribute against the
     ``--no-split-on-dot`` flag.
 
 
+.. _prep-options:
+
 Complete options
 ================
 
-.. argparse::
-   :filename: ../bin/scHPF
-   :func: _parser
-   :prog: scHPF
-   :path: prep
+For complete options, see the :ref:`complete CLI reference<cli-prep>` or use the
+``-h`` option on the command line:
+
+.. code:: bash
+
+    scHPF prep -h
+

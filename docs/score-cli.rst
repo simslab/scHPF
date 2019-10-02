@@ -35,14 +35,15 @@ If ``OUTDIR`` is omitted, the command will make a new subdirectory of the
 directory containing the model.  The new subdirectory will have the same name as
 the model file, but without the joblib extension.
 
-The 
-
+The command also outputs files which make be use for some methods of 
+:ref:`selecting the number of factors<select_k>`.
 
 Complete options
 ================
 
-.. argparse::
-   :filename: ../bin/scHPF
-   :func: _parser
-   :prog: scHPF
-   :path: score
+For complete options, see the :ref:`complete CLI reference<cli-score>` or use the
+``-h`` option on the command line:
+
+.. code:: bash
+
+    scHPF score -h

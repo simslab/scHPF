@@ -22,7 +22,7 @@ application to a spatially sampled high-grade glioma can be found in
 
 .. _our paper at Molecular Systems Biology: https://doi.org/10.15252/msb.20188557
 
-You can find the software `on github <https://github.com/simslab/scHPF>`_.
+You can find the software `on github <https://www.embopress.org/doi/full/10.15252/msb.20188557>`_.
 
 .. toctree::
     :maxdepth: 1
@@ -49,7 +49,8 @@ You can find the software `on github <https://github.com/simslab/scHPF>`_.
 .. toctree::
     :maxdepth: 1
     :caption: Misc
-    
+
+    cli-man   
     changelog
 
 

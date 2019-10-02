@@ -43,8 +43,9 @@ Debugging
 Complete options
 ================
 
-.. argparse::
-   :filename: ../bin/scHPF
-   :func: _parser
-   :prog: scHPF
-   :path: train
+For complete options, see the :ref:`complete CLI reference<cli-train>` or use the
+``-h`` option on the command line:
+
+.. code:: bash
+
+    scHPF train -h

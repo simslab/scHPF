@@ -78,4 +78,6 @@ main annotation (in this case ``gencode.v29.annotation.gtf``) were generated as 
     awk '{{OFS="\t"}{gsub(/"/, "", $10); gsub(/;/, "", $10); gsub(/"/, "", $14); gsub(/;/, "", $14); print $10, $14}}' gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.gtf > gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt
 
 
-
+.. note:: 
+    For older GENCODE versions, you  may need to  adjust the field indices in
+    the third line of code (for example changing all  instnaces of $14 to $16).

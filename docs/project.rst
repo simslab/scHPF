@@ -11,18 +11,19 @@ programs.
 Preparing data for projection
 =============================
 
-.. argparse::
-   :filename: ../bin/scHPF
-   :func: _parser
-   :prog: scHPF
-   :path: prep-like
+For complete options, see the :ref:`complete CLI reference<cli-prep-like>` or
+use the ``-h`` option on the command line:
 
+.. code:: bash
+
+    scHPF prep-like -h
 
 Projecting new data
 ====================
 
-.. argparse::
-   :filename: ../bin/scHPF
-   :func: _parser
-   :prog: scHPF
-   :path: project
+For complete options, see the :ref:`complete CLI reference<cli-project>` or
+use the ``-h`` option on the command line:
+
+.. code:: bash
+
+    scHPF project -h

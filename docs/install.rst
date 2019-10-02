@@ -33,8 +33,8 @@ The easiest way to setup a python environment for scHPF is with `anaconda`_ (or 
     pip install -U loompy
 
 
-Installing via Git
-==================
+Installing scHPF 
+================
 
 Once you have set up the environment, clone ``simslab/scHPF`` from github and install.
 
