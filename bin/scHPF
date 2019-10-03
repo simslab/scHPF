@@ -30,7 +30,7 @@ def _parser():
             '`Accession` or `Gene`, where `Accession` is an ENSEMBL id and '
             '`Gene` is the name.'
             )
-    prep.add_argument('-o', '--outdir', required=True,
+    prep.add_argument('-o', '--outdir', 
             help='Output directory. Does not need to exist.')
     prep.add_argument('-p', '--prefix', default='',
             help='Prefix for output files. Optional.')
@@ -120,7 +120,7 @@ def _parser():
             "`CELL_ID\tGENE_ID\tUMI_COUNT`. In the later case, ids are "
             "assumed to be 0 indexed and we assume no duplicates."
             )
-    train.add_argument('-o', '--outdir', required=True,
+    train.add_argument('-o', '--outdir', 
             help='Output directory for scHPF model. Will be created if does '
             'not exist.')
     train.add_argument('-p', '--prefix', default='',
@@ -204,7 +204,7 @@ def _parser():
             ' tsv file formated like: `CELL_ID\tGENE_ID\tUMI_COUNT`. In the'
             ' later case, ids are assumed to be 0 indexed and we assume no'
             ' duplicates.')
-    proj.add_argument('-o', '--outdir', required=True,
+    proj.add_argument('-o', '--outdir', 
             help='Output directory for projected scHPF model. Will be created'
             ' if does not exist.')
     proj.add_argument('-p', '--prefix', default='',
@@ -234,6 +234,15 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     # setup paths and prefixes
+
+    if args.outdir is None:
+        if args.cmd in ['prep', 'prep-like', 'train']:
+            args.outdir = args.input.rsplit('/', 1)[0]
+        elif args.cmd=='project':
+            args.outdir = args.model.rsplit('/',1)[0]
+        elif args.cmd=='score':
+            args.outdir = args.model.split('.joblib')[0]
+
     if args.outdir is not None and not os.path.exists(args.outdir):
         print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
@@ -363,12 +372,6 @@ if __name__=='__main__':
         gene_score = model.gene_score()
 
         print('Saving scores.....')
-        if args.outdir is None:
-            outdir = args.model.split('.joblib')[0]
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
-        else:
-            outdir = args.outdir
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
 
