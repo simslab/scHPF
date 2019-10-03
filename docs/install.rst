@@ -37,20 +37,15 @@ its stripped-down version `miniconda`_):
 
 numba compatibility
 -------------------
-Certain versions of Python and numba do not play well together in the context
-of scHPF, resulting segmentation faults and/or horrible performance.  In my
-experience, combos that avoid these issues seem to be:
+Certain versions (including patch versions) of Python and numba do not play
+well together (at least in the context of scHPF), resulting in segmentation
+faults and/or horrible performance.  In our experience, combos that
+avoid these issues seem to be:
 
-**Python 3.6**
+**Python <=3.7.3**
     numba versions: 0.39, 0.40, 0.44, 0.45
-**Python 3.7**
+**Python 3.7.4**
     numba versions: 0.44, 0.45
-
-Some of these constraints don't appear to be true for all patch-level Python 
-versions (eg some earlier versions of numba work with python < 3.7.4).
-
-If you know of a better way to handle this than I am already/how to evaluate
-this without trying every version combo, please get in touch.
 
 
 Installing scHPF 
