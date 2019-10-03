@@ -10,7 +10,7 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 ##  Installation
 ### Environment & Dependencies
 scHPF requires Python >= 3.6 and the packages:
-- numba ([version depends on python version]((https://schpf.readthedocs.io/en/latest/install.html#numba), but will be safe with 0.45)
+- numba ([version required depends on python version](https://schpf.readthedocs.io/en/latest/install.html#numba-compatibility), but will be safe with 0.45)
 - scikit-learn
 - pandas
 - (optional) loompy
