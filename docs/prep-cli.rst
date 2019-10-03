@@ -20,15 +20,19 @@ As written, the command prepares a
 :ref:`matrix of molecular counts <matrix-format>` for training and only includes
 genes that are:
 
-- on a :ref:`whitelist<whitelist>`, for example one of the lists of protein
-  coding genes bundled in the scHPF code's reference folder
-
-- that we observe in at at least 10 cells (``-m``/``--min-cells``).
+    - on a :ref:`whitelist<whitelist>`, for example one of the lists of protein
+      coding genes bundled in the scHPF code's reference folder
+      (``-w``/``--whitelist``)
+    - that we observe in at at least 10 cells (``-m``/``--min-cells``).
 
 After running this command, ``OUTDIR`` should contain a matrix market file,
-``train.mtx``, and an ordered list of genes, ``genes.txt``.  An optional prefix
+``filtered.mtx``, and an ordered list of genes, ``genes.txt``.  An optional prefix
 argument can be added, which is prepended to to the output file names.
 
+Now we can train the model with the |scHPF train|_.
+
+.. |scHPF train| replace:: ``scHPF train`` utility
+.. _scHPF train: train-cli.html
 
 .. _matrix-format:
 
@@ -37,13 +41,13 @@ Input matrix format
 ``scHPF prep`` takes a molecular count matrix for an scRNA-seq experiment
 and formats it for training. The input matrix has two allowed formats:
 
-1. A **whitespace-delimited matrix** formatted as follows, with no header::
+    1. A **whitespace-delimited matrix** formatted as follows, with no header::
 
-    ENSEMBL_ID    GENE_NAME    UMICOUNT_CELL0    UMICOUNT_CELL1 ...
+        ENSEMBL_ID    GENE_NAME    UMICOUNT_CELL0    UMICOUNT_CELL1 ...
 
-2. A **loom file** (see `loompy docs`_).  The loom file must have at least one
-   of the row attributes ``Accession`` or ``Gene``, where ``Accession`` is an
-   ENSEMBL id and ``Gene`` is a gene name. 
+    2. A **loom file** (see `loompy docs`_).  The loom file must have at least 
+       one of the row attributes ``Accession`` or ``Gene``, where ``Accession``
+       is an ENSEMBL id and ``Gene`` is a gene name. 
 
 .. _whitelist:
 
@@ -62,7 +66,7 @@ Whitelists for human and mouse are provided in the `resources folder`_, and
 details on formatting  and custom lists are in the 
 :ref:`gene list documentation <genelists>`.
 
-.. note::
+.. Attention::
     ENSEMBL ids may end in a period followed by an unstable version 
     number (eg ENSG00000186092.6). By default, the prep command ignores anything 
     after the period. This means ``[ENS-ID].[VERSION]`` is equivalent to 

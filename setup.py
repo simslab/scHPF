@@ -7,7 +7,8 @@ __version__ = '0.0.0'
 exec(open('schpf/_version.py').read())
 
 requires = ['scikit-learn',
-            'numba >=0.35, <=0.40',
+            "numba >= 0.39, !=0.41, !=0.42, !=0.43; python_version=='3.6'",
+            "numba >= 0.44; python_version=='3.7'",
             'scipy >= 1.1',
             'numpy',
             'pandas'
