@@ -46,7 +46,7 @@ Debugging
 .. hint::
     If you get an error like "Segmentation fault (core dumped)" and are running
     Python 3.7.4,  try upgrading numba to version 0.45 or downgrading Python to
-    3.7.3 py:ref:`[More details]<numba>`
+    3.7.3 python :ref:`[More details]<numba>`
 
 
 Complete options

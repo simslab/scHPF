@@ -21,7 +21,11 @@ Python distribution in [Miniconda](https://conda.io/miniconda.html) or
 
 ```
 conda create -n schpf_p37 python=3.7 scikit-learn numba=0.45 pandas
+
+# for newer anaconda versions
 conda activate schpf_p37
+# XOR older anaconda verstions
+source activate schpf_p37
 
 # Optional, for using loom files as input to preprocessing
 pip install -U loompy

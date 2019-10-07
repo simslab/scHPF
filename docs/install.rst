@@ -24,10 +24,10 @@ its stripped-down version `miniconda`_):
 
     conda create -n schpf_p37 python=3.7 scikit-learn numba=0.45 pandas
 
-    # older anaconda
-    source activate schpf_p37
-    # XOR newer anaconda
+    # for newer anaconda versions
     conda activate schpf_p37
+    # XOR older anaconda verstions
+    source activate schpf_p37
 
     # Optional, for using loom files as input to preprocessing
     pip install -U loompy
@@ -43,9 +43,9 @@ uses).  In our experience, micro-version combos that avoid these issues seem to
 be:
 
 **Python <=3.7.3**
-    numba versions: 0.39, 0.40, 0.44, 0.45
+    Compatible numba: 0.39, 0.40, 0.44, 0.45
 **Python 3.7.4**
-    numba versions: 0.44, 0.45
+    Compatible numba: 0.44, 0.45
 
 *Please* let us know about any weird errors/slowness your experience so we can 
 document!

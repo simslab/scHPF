@@ -16,7 +16,6 @@ Changelog
 - Version as an object attribute
 - Handle change in scipy API
 - new GENCODE files
-- use pathlib for paths
 - (feature request) options to specify a and c from the train CLI
 - Documentation with ReadTheDocs
 
