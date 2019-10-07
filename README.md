@@ -10,16 +10,19 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 ##  Installation
 ### Environment & Dependencies
 scHPF requires Python >= 3.6 and the packages:
-- numba ([version required depends on python version](https://schpf.readthedocs.io/en/latest/install.html#numba-compatibility), but will be safe with 0.45)
+- numba ([version needed depends on Python version](https://schpf.readthedocs.io/en/latest/install.html#numba-compatibility), but should be safe with 0.45)
 - scikit-learn
 - pandas
 - (optional) loompy
 
-The easiest way to setup a python environment for scHPF is with 
-[Miniconda](https://conda.io/miniconda.html)/[anaconda](https://www.continuum.io/downloads).
+The easiest way to setup an environment for scHPF is with the Anaconda
+Python distribution in [Miniconda](https://conda.io/miniconda.html) or
+[anaconda](https://www.continuum.io/downloads):
+
 ```
-conda create -n schpf_p36 python=3.7 scikit-learn numba=0.45 pandas
-conda activate schpf_p36
+conda create -n schpf_p37 python=3.7 scikit-learn numba=0.45 pandas
+conda activate schpf_p37
+
 # Optional, for using loom files as input to preprocessing
 pip install -U loompy
 ```
@@ -42,27 +45,14 @@ pip install .
 
 
 ## API
-
 scHPF has a scikit-learn like API. Trained models are stored in a serialized
 joblib format.
 
 
-##  References
-
-Hanna Mendes Levitin, Jinzhou Yuan, Yim Ling Cheng, Francisco JR Ruiz, Erin C Bush, 
-Jeffrey N Bruce, Peter Canoll, Antonio Iavarone, Anna Lasorella, David M Blei, Peter A Sims.
-__"*De novo* gene signature identification from single‐cell RNA‐seq with hierarchical Poisson 
-factorization."__ Molecular Systems Biology, 2019. [[Open access article]](http://msb.embopress.org/content/15/2/e8557.full.pdf)
-
-Peter A. Szabo*, Hanna Mendes Levitin*, Michelle Miron, Mark E. Snyder, Takashi Senda, 
-Jinzhou Yuan, Yim Ling Cheng, Erin C. Bush, Pranay Dogra, Puspa Thapa, Donna L. Farber, 
-Peter A. Sims. __"A single-cell reference map for human blood and tissue T cell 
-activation reveals functional states in health and disease."__ In press, 2019. 
-[[preprint]](https://www.biorxiv.org/content/10.1101/555557v1)
-
-
 ## Help and support
-Please [open an issue](https://github.com/simslab/scHPF/issues/new) and I will try to provide whatever help and guidance I can.
+If you have any questions/errors/issues, please [open an issue](https://github.com/simslab/scHPF/issues/new) 
+and I be happy to to provide whatever help and guidance I can.
+
 
 ## Contributing
 Contributions to scHPF are welcome. Please get in touch if you would like to
@@ -70,4 +60,17 @@ discuss/check it's something I've already done but haven't pushed to master yet.
 To contribute, please [fork
 scHPF](https://github.com/simslab/scHPF/issues#fork-destination-box), make your
 changes, and submit a pull request.
+
+##  References
+Hanna Mendes Levitin, Jinzhou Yuan, Yim Ling Cheng, Francisco JR Ruiz, Erin C Bush, 
+Jeffrey N Bruce, Peter Canoll, Antonio Iavarone, Anna Lasorella, David M Blei, Peter A Sims.
+__"*De novo* gene signature identification from single‐cell RNA‐seq with hierarchical Poisson 
+factorization."__ Molecular Systems Biology, 2019. [[Open access article]](http://msb.embopress.org/content/15/2/e8557.full.pdf)
+
+Peter A. Szabo\*, Hanna Mendes Levitin\*, Michelle Miron, Mark E. Snyder, Takashi Senda, 
+Jinzhou Yuan, Yim Ling Cheng, Erin C. Bush, Pranay Dogra, Puspa Thapa, Donna L. Farber, 
+Peter A. Sims. __"A single-cell reference map for human blood and tissue T cell 
+activation reveals functional states in health and disease."__ In press, 2019. 
+[[preprint]](https://www.biorxiv.org/content/10.1101/555557v1)
+\* Co-first authors
 
