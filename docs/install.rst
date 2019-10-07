@@ -37,21 +37,24 @@ its stripped-down version `miniconda`_):
 
 numba compatibility
 -------------------
-Certain versions (including patch versions) of Python and numba do not play
-well together (at least in the context of scHPF), resulting in segmentation
-faults and/or horrible performance.  In our experience, combos that
-avoid these issues seem to be:
+Certain micro-versions of Python and numba do not play well together, resulting
+in segmentation faults and/or horrible performance (at least for the ops scHPF
+uses).  In our experience, micro-version combos that avoid these issues seem to
+be:
 
 **Python <=3.7.3**
     numba versions: 0.39, 0.40, 0.44, 0.45
 **Python 3.7.4**
     numba versions: 0.44, 0.45
 
+*Please* let us know about any weird errors/slowness your experience so we can 
+document!
 
 Installing scHPF 
 ================
 
-Once you have set up the environment, clone ``simslab/scHPF`` from github and install.
+Once you have set up the environment, clone ``simslab/scHPF`` from github and
+install.
 
 .. code:: bash
 
