@@ -4,6 +4,7 @@
 scHPF is a tool for _de novo_ discovery of both discrete and continuous expression patterns in single-cell RNA\-sequencing (scRNA-seq). We find that scHPF’s sparse low-dimensional representations, non-negativity, and explicit modeling of variable sparsity across genes and cells produce highly interpretable factors.
 
 - [Documentation](https://schpf.readthedocs.io/en/latest/)
+- [Changelog](https://schpf.readthedocs.io/en/latest/changelog.html)
 - [Paper at Molecular Systems Biology](http://msb.embopress.org/content/15/2/e8557.full.pdf)
 - [Application to human tissue T cells across multiple donors and tissues](https://www.biorxiv.org/content/10.1101/555557v1) 
 

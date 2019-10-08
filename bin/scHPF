@@ -150,12 +150,12 @@ def _parser():
     train.add_argument('-e',  '--epsilon', type=float, default=0.001,
             help='Minimum percent decrease in loss between checks to continue '
             'inference (convergence criteria). [Default 0.001].')
-    train.add_argument('-f', '--check_freq', type=int, default=10,
+    train.add_argument('-f', '--check-freq', type=int, default=10,
             help='Number of iterations to run between convergence checks. '
             '[Default 10].')
     train.add_argument('--better-than-n-ago', default=5, type=int,
             help= 'Stop condition if loss is getting worse.  Stops training '
-            'if loss is worse than `better_than_n_ago`*`check_freq` training '
+            'if loss is worse than `better_than_n_ago`*`check-freq` training '
             'steps ago and getting worse. Normally not necessary to change.')
     train.add_argument('-a', type=float, default=0.3,
             help='Value for hyperparameter a. [Default 0.3]')
@@ -222,7 +222,7 @@ def _parser():
     proj.add_argument('--epsilon', type=float, default=0.001,
             help='Minimum percent decrease in loss between checks to continue '
             'inference (convergence criteria). [Default 0.001].')
-    proj.add_argument('--check_freq', type=int, default=10,
+    proj.add_argument('--check-freq', type=int, default=10,
             help='Number of iterations to run between convergence checks. '
             '[Default 10].')
 
@@ -437,7 +437,7 @@ if __name__=='__main__':
                                    epsilon=args.epsilon, )
         print('Saving projection.....')
         if args.recalc_bp:
-            outprefix += '.{}'.format('recalc_bp')
+            outprefix += '{}.'.format('recalc_bp')
         proj_out = '{}{}.proj.joblib'.format(outprefix, 
                 args.model.rsplit('.',1)[0].split('/')[-1])
         save_model(projection, proj_out)
