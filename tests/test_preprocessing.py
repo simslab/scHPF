@@ -18,9 +18,10 @@ NGENES = 500
 
 # TODO figure out how to get this without going this far up tree or doubling
 # perhaps make a small copy?
-PROTEIN_CODING = str(Path(*Path(__file__).parts[:-3]) / Path(
+PROTEIN_CODING = str(
+    Path(*Path(__file__).parts[:-2]) / Path(
         'resources/gencode.v29.annotation.gene_l1l2.pc_TRC_IGC.stripped.txt'))
-BLIST = str(Path(__file__).parent /  Path('_data/sample_blacklist.txt'))
+BLIST = str( Path(__file__).parent /  Path('_data/sample_blacklist.txt') )
 
 
 @pytest.fixture()
@@ -45,6 +46,45 @@ def test_load_txt(ngene_cols):
     assert coo.shape[1] == NGENES
     assert genes.shape[0] == NGENES
     assert coo.shape[0]  == NCELLS + 2 - ngene_cols
+
+
+def test_load_like(tmp_path):
+    gene_file = str(tmp_path / 'genes.txt')
+
+    # make a permutation
+    perm = np.random.choice(NGENES, NGENES-10, replace=False)
+
+    # load data to make reference and permute
+    umis, genes = prep.load_txt(TXT)
+    umis = umis.A[:, perm]
+    genes = genes.loc[perm]
+
+    # write permuted/subsampled reference file
+    genes.to_csv(gene_file, header=None, sep='\t', index=None)
+
+    # load like permuted reference
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file)
+    assert_equal(len(ll_genes), len(perm))
+    assert_array_equal(umis, ll_umi.A)
+
+    # repeat with no_split_on_dot
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file,
+            no_split_on_dot=True)
+    assert_equal(len(ll_genes), len(perm))
+    assert_array_equal(umis, ll_umi.A)
+
+    # by gene name
+    ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file,
+            by_gene_name=True)
+    assert_equal(len(ll_genes), len(perm))
+    assert_array_equal(umis, ll_umi.A)
+
+    # corrupt the permuted reference
+    bad_genes = genes.copy()
+    bad_genes.loc[5, 0] = 'random'
+    bad_genes.to_csv(gene_file, header=None, sep='\t', index=None)
+    with pytest.raises(ValueError):
+        ll_umi, ll_genes = prep.load_like(TXT, reference=gene_file)
 
 
 def test_min_cells_expressing(data):
@@ -93,6 +133,39 @@ def test_genelist_mask(protein_coding, exp_genes):
     assert_array_equal(prep.genelist_mask(exp_genes[1], protein_coding[1],
                                           whitelist=False),
                        ~shared_gene)
+
+
+def test_subsample_cell_ixs():
+    # int for choices
+    assert_equal(len(prep.subsample_cell_ixs(20, 10)),  10)
+    # array of choices
+    assert_equal(len(prep.subsample_cell_ixs(np.arange(20), 10)),  10)
+
+    # test picks one from a group
+    group_ids = np.array([0] * 100 + [1,1])
+    idx = prep.subsample_cell_ixs(102, 10, group_ids=group_ids,
+            max_group_frac=0.5)
+    assert (100 in idx) ^ (101 in idx) #xor
+    assert_equal(len(idx), 10)
+
+    # test doesn't pick when can't under constraint
+    group_ids = np.array([0] * 18 + [1,1])
+    idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
+            max_group_frac=0.4)
+    assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
+    assert_equal(len(idx), 5) # but still have 5 items
+
+
+    # test doesn't pick more than it can under constraint
+    group_ids = np.array([0] * 18 + [1,1])
+    idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
+            max_group_frac=0.25)
+    assert (not 18 in idx) and (not 19 in idx) #neither of the group 1 indexes
+    assert_equal(len(idx), 4) # should have floor(0.25*18) items
+    with pytest.warns(UserWarning) as record:
+        idx = prep.subsample_cell_ixs(20, 5, group_ids=group_ids,
+                max_group_frac=0.25)
+    assert len(record) == 1
 
 
 def test_load_and_filter(protein_coding, blacklist):

@@ -2,18 +2,22 @@
 
 from setuptools import find_packages, setup
 
-__version__ = '0.2.4'
+# get version from file
+__version__ = '0.0.0'
+exec(open('schpf/_version.py').read())
 
 requires = ['scikit-learn',
-            'numba >=0.35, <=0.40',
+            "numba >= 0.39, !=0.41, !=0.42, !=0.43; python_version<='3.7.3'",
+            "numba >= 0.44; python_version>='3.7.4'",
             'scipy >= 1.1',
             'numpy',
-            'pandas' # TODO get rid of this because only used in preprocessing
+            'pandas'
             ]
 
 tests_require = ['pytest']
 extras_require = {
-        'loompy_preprocessing' : ['loompy']
+        'loompy' : ['loompy'],
+        'docs' : ['sphinx-argparse']
         }
 
 setup(

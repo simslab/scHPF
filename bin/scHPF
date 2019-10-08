@@ -2,15 +2,18 @@
 
 import os
 import argparse
+import json
+import time
 
 import numpy as np
 import pandas as pd
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
-from schpf import scHPF
-from schpf import load_model, save_model, run_trials, max_pairwise_table
-from schpf.preprocessing import load_and_filter, load_coo
+from schpf import scHPF, load_model, save_model, run_trials
+from schpf.util import max_pairwise_table, mean_cellscore_fraction_list
+from schpf.preprocessing import load_coo, load_and_filter, load_like
+from schpf.preprocessing import split_validation_cells
 
 def _parser():
     parser = argparse.ArgumentParser()
@@ -18,6 +21,7 @@ def _parser():
 
     ### Preprocess command
     prep = subparsers.add_parser('prep')
+    # data
     prep.add_argument('-i', '--input', required=True,
             help='Input data. Currently accepts either: (1) a whitespace-'
             'delimited gene by cell UMI count matrix with 2 leading columns '
@@ -26,10 +30,12 @@ def _parser():
             '`Accession` or `Gene`, where `Accession` is an ENSEMBL id and '
             '`Gene` is the name.'
             )
-    prep.add_argument('-o', '--outdir', required=True,
+    prep.add_argument('-o', '--outdir', 
             help='Output directory. Does not need to exist.')
     prep.add_argument('-p', '--prefix', default='',
             help='Prefix for output files. Optional.')
+
+    # gene filtering criteria
     prep.add_argument('-m', '--min-cells', type=float, default=0.01, 
             help='Minimum number of cells in which we must observe at '
             'least one transcript of a gene for the gene to pass '
@@ -46,16 +52,63 @@ def _parser():
             'ids to exclude, and second column is the corresponding gene name. '
             'Only performed if file given. Genes on the blacklist are '
             'excluded even if they are also on the whitelist. Optional.')
+
+    # optional selection of cells for validation set
+    prep.add_argument('-nvc', '--n-validation-cells', type=int, default=0,
+            help='Number of cells to randomly select for validation.')
+    prep.add_argument('-vgid', '--validation-group-ids', default=None,
+            help= 'Single column file of cell group ids readable with '
+            ' np.readtxt. If `--n-validation-cells` is > 0, cells will be '
+            ' randomly selected approximately evenly across the groups in '
+            ' this file, under the constraint that at most'
+            ' `--validation-min-group-frac` * (ncells in group) are selected'
+            ' from every group.')
+    prep.add_argument('--validation-max-group-frac', type=float, default=0.5,
+            help='If `-nvc`>0 and `validation-group-ids` is a valid file, at'
+            ' most `validation-min-group-frac`*(ncells in group) cells are'
+            ' selected from each group.')
+
+    # other options
     prep.add_argument('--filter-by-gene-name', default=False, 
-            action='store_true', help='Use gene name rather than ENSEMBL '
-            'id to filter (with whitelist or blacklist).  Useful for '
-            'datasets where only gene symbols are given. Applies to both '
-            'whitelist and blacklist. Used by default when input is a loom '
-            'file.')
+            action='store_true', help='Use gene name rather than ENSEMBL'
+            ' id to filter (with whitelist or blacklist).  Useful for'
+            ' datasets where only gene symbols are given. Applies to both'
+            ' whitelist and blacklist. Used by default when input is a loom'
+            ' file (unless there is an Accession attribute in the loom).')
     prep.add_argument('--no-split-on-dot', default=False, action='store_true',
             help='Don\'t split gene symbol or name on period before '
-            'filtering white and blacklist. We do this by default for '
+            'filtering whitelist and blacklist. We do this by default for '
             'ENSEMBL ids.')
+
+
+    #### Prepare like
+    prep_like = subparsers.add_parser('prep-like')
+    # data
+    prep_like.add_argument('-i', '--input', required=True,
+            help='Input data to format. Currently accepts either: (1) a'
+            ' whitespace-delimited gene by cell UMI count matrix with 2'
+            ' leading columns of gene attributes (ENSEMBL_ID and GENE_NAME'
+            ' respectively), or (2) a loom file with at least one of the row'
+            ' attributes `Accession` or `Gene`, where `Accession` is an'
+            ' ENSEMBL id and `Gene` is the name.')
+    prep_like.add_argument('-r', '--reference', required=True,
+            help='Two-column tab-delimited file of ENSEMBL ids and gene names'
+            ' to select from `input` and order like. All genes in `reference`'
+            ' must be present in `input`.')
+    prep_like.add_argument('-o', '--outdir', required=True,
+            help='Output directory. Does not need to exist.')
+    prep_like.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+    # other options
+    prep_like.add_argument('--by-gene-name', default=False, 
+            action='store_true', help='Use gene name rather than ENSEMBL'
+            ' id to when matching against reference.  Useful for datasets'
+            ' where only gene symbols are given. Used by default when input'
+            ' is a loom file (unless there is an Accession attr in the loom).')
+    prep_like.add_argument('--no-split-on-dot', default=False, action='store_true',
+            help='Don\'t split gene symbol or name on period before'
+            ' when matching to reference. We do this by default for ENSEMBL'
+            ' ids.')
 
 
     ###### Train command
@@ -67,7 +120,7 @@ def _parser():
             "`CELL_ID\tGENE_ID\tUMI_COUNT`. In the later case, ids are "
             "assumed to be 0 indexed and we assume no duplicates."
             )
-    train.add_argument('-o', '--outdir', required=True,
+    train.add_argument('-o', '--outdir', 
             help='Output directory for scHPF model. Will be created if does '
             'not exist.')
     train.add_argument('-p', '--prefix', default='',
@@ -82,9 +135,14 @@ def _parser():
             help='Number of times to run scHPF, selecting the trial with '
             'best loss (on training data unless validation is given).'
             ' [Default 1]')
-    train.add_argument('-v', '--validation', 
-            help='Validation data of selected nonzero entries. Must have same '
-            'format (either mtx or tsv) as input. [Default None]' )
+    train.add_argument('-v', '--validation-cells', default=None,
+            help='Cells to use to assess convergence and choose a model.'
+            ' Expects same format as ``-i/--input``. Training data used by'
+            ' default.'
+            )
+    # train.add_argument('-vnz', '--validation-nonzero', 
+            # help='Validation data of selected nonzero entries. Must have same '
+            # 'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -92,13 +150,17 @@ def _parser():
     train.add_argument('-e',  '--epsilon', type=float, default=0.001,
             help='Minimum percent decrease in loss between checks to continue '
             'inference (convergence criteria). [Default 0.001].')
-    train.add_argument('-f', '--check_freq', type=int, default=10,
+    train.add_argument('-f', '--check-freq', type=int, default=10,
             help='Number of iterations to run between convergence checks. '
             '[Default 10].')
     train.add_argument('--better-than-n-ago', default=5, type=int,
             help= 'Stop condition if loss is getting worse.  Stops training '
-            'if loss is worse than `better_than_n_ago`*`check_freq` training '
+            'if loss is worse than `better_than_n_ago`*`check-freq` training '
             'steps ago and getting worse. Normally not necessary to change.')
+    train.add_argument('-a', type=float, default=0.3,
+            help='Value for hyperparameter a. [Default 0.3]')
+    train.add_argument('-c', type=float, default=0.3,
+            help='Value for hyperparameter c. [Default 0.3]')
     train.add_argument('--quiet', dest='verbose', action='store_false', 
             default=True, help="Don't print intermediate llh.")
     train.add_argument('--float32', action='store_true',
@@ -111,22 +173,58 @@ def _parser():
     score.add_argument('-m', '--model', required=True,
             help='Saved scHPF model from train command. Should have extension' 
             '`.joblib`')
-    score.add_argument('-o', '--outdir', required=True,
-            help='Output directory for score files')
+    score.add_argument('-o', '--outdir', default=None,
+            help='Output directory for score files. If not given, a new'
+            ' subdirectory of the dir containing the model will be made with'
+            ' the same name as the model file (without extension)')
     score.add_argument('-p', '--prefix', default='',
             help='Prefix for output files. Optional.')
     score.add_argument('-g', '--genefile', default=None,
             help='Create an additional file with gene names ranked by score '
             'for each factor. Expects the gene.txt file output by the scHPF '
             'prep command or a similarly formatted tab-delimited file without '
-            'headers. Uses the zero-indexed `--name_col`\'th column as gene '
+            'headers. Uses the zero-indexed ``--name_col``\'th column as gene '
             'names. Optional.')
     score.add_argument('--name-col', type=int, default=1,
             help='The zero-indexed column of `genefile` to use as a gene name '
-            'when (optionally) ranking genes. If `--name_col` is greater than '
-            'the index of `genefile`\'s last column, it is automatically reset '
-            'to the last column\'s index. [Default 1]'
+            'when (optionally) ranking genes. If ``--name_col`` is greater'
+            ' than the index of ``--genefile``\'s last column, it is '
+            ' automatically reset to the last column\'s index. [Default 1]'
         )
+
+
+    # ###### Project command
+    proj = subparsers.add_parser('project')
+    # data and saving
+    proj.add_argument('-m', '--model', required=True,
+            help='The model to project onto.')
+    proj.add_argument('-i', '--input', required=True,
+            help='Data to project onto model. Expects either the mtx file'
+            ' output by the prep or prep-like commands or a tab-delimitted'
+            ' tsv file formated like: `CELL_ID\tGENE_ID\tUMI_COUNT`. In the'
+            ' later case, ids are assumed to be 0 indexed and we assume no'
+            ' duplicates.')
+    proj.add_argument('-o', '--outdir', 
+            help='Output directory for projected scHPF model. Will be created'
+            ' if does not exist.')
+    proj.add_argument('-p', '--prefix', default='',
+            help='Prefix for output files. Optional.')
+
+    # projection-specific args
+    proj.add_argument('--recalc-bp', action='store_true',
+            help='Recalculate hyperparameter bp for the new data')
+
+    # Training parameters (same as train, different defaults, no short names)
+    proj.add_argument('--max-iter', type=int, default=500,
+            help='Maximum iterations. [Default 500].')
+    proj.add_argument('--min-iter', type=int, default=10,
+            help='Minimum iterations. [Default 10]')
+    proj.add_argument('--epsilon', type=float, default=0.001,
+            help='Minimum percent decrease in loss between checks to continue '
+            'inference (convergence criteria). [Default 0.001].')
+    proj.add_argument('--check-freq', type=int, default=10,
+            help='Number of iterations to run between convergence checks. '
+            '[Default 10].')
 
     return parser
 
@@ -135,9 +233,21 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
-    if not os.path.exists(args.outdir):
+    # setup paths and prefixes
+
+    if args.outdir is None:
+        if args.cmd in ['prep', 'prep-like', 'train']:
+            args.outdir = args.input.rsplit('/', 1)[0]
+        elif args.cmd=='project':
+            args.outdir = args.model.rsplit('/',1)[0]
+        elif args.cmd=='score':
+            args.outdir = args.model.split('.joblib')[0]
+
+    if args.outdir is not None and not os.path.exists(args.outdir):
         print("Creating output directory {} ".format(args.outdir))
         os.makedirs(args.outdir)
+    prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
+    outprefix = args.outdir + '/' +  prefix
 
     if args.cmd == 'prep':
         filtered, genes = load_and_filter(args.input, 
@@ -147,66 +257,146 @@ if __name__=='__main__':
                 filter_by_gene_name=args.filter_by_gene_name,
                 no_split_on_dot=args.no_split_on_dot)
 
-        print('Writing filtered data to file......')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
-        mmwrite('{}train.mtx'.format(outprefix), filtered, field='integer')
+        print('Writing filtered data to file.....')
+        mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
         genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
                 index=None)
 
+        if args.n_validation_cells > 0:
+            print('Selecting train/validation cells.....')
+            Xtrn, Xvld, vld_ix = split_validation_cells( filtered,
+                    args.n_validation_cells, args.validation_group_ids,
+                    max_group_frac = args.validation_max_group_frac)
+            trn_ix = np.setdiff1d(np.arange(filtered.shape[0]), vld_ix)
+
+            print('Writing train/validation splits.....')
+            mmwrite('{}train_cells.mtx'.format(outprefix), Xtrn, 
+                    field='integer')
+            np.savetxt('{}train_cell_ix.txt'.format(outprefix), trn_ix, 
+                    fmt='%d')
+            mmwrite('{}validation_cells.mtx'.format(outprefix), Xvld, 
+                    field='integer')
+            np.savetxt('{}validation_cell_ix.txt'.format(outprefix), vld_ix, 
+                    fmt='%d')
+
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}prep_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
+
+
+
+    elif args.cmd == 'prep-like':
+        print('Loading and reordering input like reference.... ')
+        filtered, genes = load_like(args.input, reference=args.reference,
+                by_gene_name=args.by_gene_name, 
+                no_split_on_dot=args.no_split_on_dot)
+        print('Writing prepared data to file.....')
+        mmwrite('{}filtered.mtx'.format(outprefix), filtered, field='integer')
+        genes.to_csv('{}genes.txt'.format(outprefix), sep='\t', header=None,
+                index=None)
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}prep-like_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
+
+
     elif args.cmd == 'train':
         # load data
-        print( 'Loading data......' )
+        print( 'Loading data.....' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         train = load_fnc(args.input)
-        if args.validation is not None:
-            vdata = load_fnc(args.validation)
-        else:
-            vdata = None
+
         ncells, ngenes = train.shape
-        msg = '......found {} cells and {} genes'.format(ncells, ngenes)
+        msg = '.....found {} cells and {} genes in {}'.format(
+                ncells, ngenes, args.input)
+        print(msg)
+        if args.validation_cells is not None:
+            vcells = load_fnc(args.validation_cells)
+            msg = '.....found {} validation cells and {} genes in {}'.format(
+                    vcells.shape[0], vcells.shape[1], args.validation_cells)
+            print(msg)
+            msg = 'WARNING: scHPF models with validation cells can be slow'
+            msg += ' to converge.\n\tIf you observe this, try either (or both)'
+            msg += ' increasing epsilon (-e, currently set to {})'.format(
+                    args.epsilon)
+            msg += ' or increasing the number of validation cells (using prep)'
+            print(msg)
+        else:
+            vcells = None
 
         # create model
-        print('Running trials......' )
+        print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
-        model = run_trials(train, 
+        model_kwargs = dict(a=args.a, c=args.c)
+        model = run_trials(train, vcells=vcells,
                     nfactors=args.nfactors, ntrials=args.ntrials,
                     min_iter=args.min_iter, max_iter=args.max_iter,
                     check_freq=args.check_freq, epsilon=args.epsilon,
                     better_than_n_ago=args.better_than_n_ago,
-                    dtype=dtype, verbose=args.verbose, 
-                    validation_data=vdata)
+                    dtype=dtype, verbose=args.verbose,
+                    model_kwargs=model_kwargs)
 
         # save the model
-        print('Saving best model......')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
-        outname = '{}scHPF_K{}_epsilon{}_{}trials.joblib'.format(
-                outprefix, args.nfactors, args.epsilon, args.ntrials)
-        save_model(model, outname)
+        model_outprefix = '{}scHPF_K{}_{}trials'.format(
+                    outprefix, args.nfactors, args.ntrials)
+        if vcells is None:
+            print('Saving best model.....')
+            save_model(model, model_outprefix + '.joblib')
+        else:
+            print('Saving best model (training data).....')
+            save_model(model, model_outprefix + '.train.joblib')
+
+            print('Computing final validation projection....')
+            projection = model.project(vcells, replace=False)
+            print('Saving validation projection.....')
+            save_model(projection, model_outprefix + '.validaton_proj.joblib')
+
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}train_commandline_args.json'.format(outprefix)
+        if os.path.exists(cmdfile):
+            cmdfile = '{}train_commandline_args.{}.json'.format(outprefix, 
+                    time.strftime("%Y%m%d-%H%M%S"))
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
+
         print('\n')
 
+
     elif args.cmd == 'score':
-        print('Loading model......')
+        print('Loading model.....')
         model = load_model(args.model)
 
-        print('Calculating scores......')
+        print('Calculating scores.....')
         cell_score = model.cell_score()
         gene_score = model.gene_score()
 
-        print('Saving scores......')
-        prefix = args.prefix.rstrip('.') + '.' if len(args.prefix) > 0 else ''
-        outprefix = '{}/{}'.format(args.outdir, prefix)
+        print('Saving scores.....')
         np.savetxt(outprefix + 'cell_score.txt', cell_score, delimiter='\t')
         np.savetxt(outprefix + 'gene_score.txt', gene_score, delimiter='\t')
 
-        print('Calculating maximum pairwise overlaps......')
+        print('Calculating mean cellscore fractions.....')
+        frac_list = mean_cellscore_fraction_list(cell_score)
+        with open(outprefix + 'mean_cellscore_fraction.txt', 'w') as h:
+            h.write('nfactors\tmean_cellscore_fraction\n')
+            for i,csf in enumerate(frac_list):
+                h.write('{}\t{}\n'.format(i+1,csf))
+
+        print('Calculating maximum pairwise overlaps.....')
         table = max_pairwise_table(gene_score, 
-                ntop_list=[50,100,150,200,250,300])
+                ntop_list=[50,100,150,200,250,300,350,400,450,500])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
+        # # Make second table w/percent cutoffs
+        # percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
+        # p_ntop = [int(p*len(gene_score)) for p in percents]
+        # table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
+        # table2['percent'] = percents # add percent column
+        # table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
+        # table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
+                # index=False)
 
         if args.genefile is not None:
-            print('Ranking genes......')
+            print('Ranking genes.....')
             # load and format gene file
             genes = np.loadtxt(args.genefile, delimiter='\t', dtype=str)
             if len(genes.shape) == 1:
@@ -214,7 +404,7 @@ if __name__=='__main__':
             # get column to use for gene names
             last_col = genes.shape[1] - 1
             name_col = last_col if args.name_col > last_col else args.name_col
-            print('......using {}\'th column of genefile as gene label'.format(
+            print('.....using {}\'th column of genefile as gene label'.format(
                 name_col))
 
             # rank the genes by gene_score
@@ -223,6 +413,36 @@ if __name__=='__main__':
             for i in range(gene_score.shape[1]):
                 ranked_genes.append(genes[ranks[:,i], name_col])
             ranked_genes = np.stack(ranked_genes).T
-            print('Saving ranked genes......')
+            print('Saving ranked genes.....')
             np.savetxt(outprefix + 'ranked_genes.txt', ranked_genes, 
                     fmt="%s", delimiter='\t')
+
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}score_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2) 
+
+    elif args.cmd == 'project':
+        print('Loading reference model.....')
+        model = load_model(args.model)
+        print('Loading data.....')
+        load_fnc = mmread if args.input.endswith('.mtx') else load_coo
+        proj_data = load_fnc(args.input)
+        print('Projecting data.....')
+        projection = model.project(proj_data, replace=False, verbose=True,
+                                   recalc_bp=args.recalc_bp,
+                                   min_iter=args.min_iter, 
+                                   max_iter=args.max_iter, 
+                                   check_freq=args.check_freq, 
+                                   epsilon=args.epsilon, )
+        print('Saving projection.....')
+        if args.recalc_bp:
+            outprefix += '{}.'.format('recalc_bp')
+        proj_out = '{}{}.proj.joblib'.format(outprefix, 
+                args.model.rsplit('.',1)[0].split('/')[-1])
+        save_model(projection, proj_out)
+
+        print('Writing commandline arguments to file.....')
+        cmdfile = '{}project_commandline_args.json'.format(outprefix)
+        with open(cmdfile, 'w') as f:
+            json.dump(args.__dict__, f, indent=2)
