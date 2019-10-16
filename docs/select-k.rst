@@ -108,8 +108,9 @@ datasets, as it is explicitly avoids overlapping genes. Using
 :ref:`cellular resolution<cell-res>` or 
 :ref:`cell type respresentation<type-rep>` may find higher resolution programs.
 
-The |scHPF score|_ command automatically produces a file with maximum pairwise 
-overlaps and hypergeometric p values at different thresholds for top genes.
+The |scHPF score|_ command automatically produces the file
+*maximum_overlaps.txt*, which contains factors' maximum pairwise overlaps and
+corresponding hypergeometric *p* values at different cutoffs.
 
 
 .. |scHPF score| replace:: ``scHPF score``
