@@ -20,12 +20,12 @@ interpretability (gene scores) can be more *K*-dependent.
 Example workflow
 ================
 
-To maximize interpretability while being somewhat quantitative about choosing a
-number of factors, we usually train scHPF across a range of values of *K*, and
-select *K* using a heuristic suitable to our intended application
-(:ref:`examples<k-criteria>`). An example workflow might be:
+To maximize interpretability while being somewhat quantitative, we usually
+train scHPF across a range of *K* s, and select the number of factors using a
+heuristic suitable to our intended application 
+(:ref:`example criteria<k-criteria>`).  An example workflow might be:
 
-    1. Choose a suitable selection criteria for the problem at hand 
+    1. Choose an appropriate selection criteria for the problem at hand 
        (:ref:`examples<k-criteria>`).
 
     2. Guess a number of factors, |K_0|, greater than the number of
@@ -66,12 +66,11 @@ Example selection criteria
 1. Cell type representation
 ---------------------------
 
-To best illustrate how scHPF recapitulates and expands upon clustering in our
-initial paper, we chose *K* based on the model's representation of cell types
-in the data [Levitin2019]_.  Specifically, we selected the smallest *K* such
-that every well-defined cell type was most strongly associated with a unique
-factor `[Levitin2019, Appendix Figure S8]`_.  This method can work well when
-many well-defined cell types are present, but depends on the quality and
+In [Levitin2019]_, we chose *K* based on scHPF's representation of cell types
+in the data.  Specifically, we selected the smallest *K* such that every
+well-defined cell type was most strongly associated with at least one unique
+factor `[Levitin2019, Appendix Figure S8]`_.  This method is intuitive, and can
+work well when many cell types are present, but depends on the quality and
 granularity of clustering. It is also difficult to standardize across multiple
 models trained on different data.
 
@@ -130,7 +129,7 @@ granularity than we find with
 :ref:`gene signature overlap<signature-overlap>`.
 
 We define cellular resolution as the maximum *K* such that, on average, cells'
-*n* highest scoring factors contain at least *r*\*100 percent of its total
+*n* highest scoring factors contain at least *r*\*100 percent of their total
 score across all factors.  So if we want to find a model where the 3 factors
 with the highest score in a cell contain at least 70% of its total score (on
 average), *n* would be 3 and *r* would be 0.7.
