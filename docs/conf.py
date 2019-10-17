@@ -41,12 +41,14 @@ extensions = [
     # 'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    # 'sphinx.ext.autosummary',
+    'sphinx.ext.autosummary',
 ]
 
+autosummary_generate = True
+autodoc_member_order = 'bysource'
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
-# napoleon_include_init_with_doc = False
+napoleon_include_init_with_doc = False
 napoleon_use_rtype = True  # having a separate entry generally helps readability
 napoleon_use_param = True
 napoleon_custom_sections = [('Params', 'Parameters')]

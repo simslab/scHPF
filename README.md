@@ -5,8 +5,8 @@ scHPF is a tool for _de novo_ discovery of both discrete and continuous expressi
 
 - [Documentation](https://schpf.readthedocs.io/en/latest/)
 - [Changelog](https://schpf.readthedocs.io/en/latest/changelog.html)
-- [Paper at Molecular Systems Biology](http://msb.embopress.org/content/15/2/e8557.full.pdf)
-- [Application to human tissue T cells across multiple donors and tissues](https://www.biorxiv.org/content/10.1101/555557v1) 
+- [Paper at Molecular Systems Biology](https://doi.org/10.15252/msb.20188557)
+- [Application to human tissue T cells across multiple donors and tissues](https://doi.org/10.1038/s41467-019-12464-3) 
 
 ##  Installation
 ### Environment & Dependencies
@@ -72,10 +72,12 @@ Jeffrey N Bruce, Peter Canoll, Antonio Iavarone, Anna Lasorella, David M Blei, P
 __"*De novo* gene signature identification from single‐cell RNA‐seq with hierarchical Poisson 
 factorization."__ Molecular Systems Biology, 2019. [[Open access article]](http://msb.embopress.org/content/15/2/e8557.full.pdf)
 
-Peter A. Szabo\*, Hanna Mendes Levitin\*, Michelle Miron, Mark E. Snyder, Takashi Senda, 
-Jinzhou Yuan, Yim Ling Cheng, Erin C. Bush, Pranay Dogra, Puspa Thapa, Donna L. Farber, 
-Peter A. Sims. __"A single-cell reference map for human blood and tissue T cell 
-activation reveals functional states in health and disease."__ In press, 2019. 
-[[preprint]](https://www.biorxiv.org/content/10.1101/555557v1)
+Peter A. Szabo\*, Hanna Mendes Levitin\*, Michelle Miron, Mark E. Snyder,
+Takashi Senda, Jinzhou Yuan, Yim Ling Cheng, Erin C. Bush, Pranay Dogra, Puspa
+Thapa, Donna L. Farber, Peter A. Sims. __"Single-cell transcriptomics of human
+T cells reveals tissue and activation signatures in health and diseaseA
+single-cell reference map for human blood and tissue T cell activation reveals
+functional states in health and disease."__ In press, 2019. 
+[[Open access article]](https://doi.org/10.1038/s41467-019-12464-3)
 \* Co-first authors
 
