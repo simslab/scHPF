@@ -20,8 +20,8 @@ interpretability (gene scores) can be more *K*-dependent.
 Example workflows
 =================
 
-Exploratory analysis on a single sample
----------------------------------------
+1. Exploratory analysis on a single sample
+------------------------------------------
 In some cases, if a user has a single sample, it may be appropriate to increase
 or decrease *K* manually according to the desired resolution. Granularity at
 the level of expression programs can be assessed qualitatively using the
@@ -39,8 +39,8 @@ good starting point.
 
 .. _multi-model-example:
 
-Consistent choices across multiple models
------------------------------------------
+2. Consistent choices across multiple models
+--------------------------------------------
 Applying scHPF separately to multiple partitions (as in [SzaboLevitin2019]_)
 necessitates a uniform procedure for choosing the number of factors.  To
 maximize interpretability while being quantitative and consistent across
@@ -49,10 +49,6 @@ select the per-dataset number of factors using a heuristic suitable to our
 intended application 
 (:ref:`example criteria<k-criteria>`). An example workflow might be:
 
-
-    0. (Optional) Do a trial run on a single partition to make sure everything
-       is working, data is formatted correctly, etc., especially if you haven't
-       run scHPF before.
 
     1. Choose an appropriate selection criteria for the problem at hand 
        (:ref:`examples<k-criteria>`).
@@ -64,7 +60,7 @@ intended application
        later (e.g. |K_max| = |K_min| + 8).
 
     3. :ref:`Train<train-cli>` scHPF models for K in 
-       range(|K_min|,  |K_max| +1).  *Advanced note*: I sometimes use a step.
+       range(|K_min|,  |K_max| +1).  *Advanced note*: I sometimes use a step
        size of 2 or 3 on the first pass to check that the range is reasonable,
        but recommend a final step of 1 (scHPF is multimodal, so results may not
        be monotonic).
