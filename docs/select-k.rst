@@ -17,16 +17,42 @@ interpretability (gene scores) can be more *K*-dependent.
 
 .. _k-workflow:
 
-Example workflow
-================
+Example workflows
+=================
 
-To maximize interpretability while being somewhat quantitative, we usually
-train scHPF across a range of *K*'s, and select the number of factors using a
-heuristic suitable to our intended application 
-(:ref:`example criteria<k-criteria>`).  An example workflow might be:
+Exploratory analysis on a single sample
+---------------------------------------
+In some cases, if a user has a single sample, it may be appropriate to increase
+or decrease *K* manually according to the desired resolution. Granularity at
+the level of expression programs can be assessed qualitatively using the
+per-factor ranked gene lists in *ranked_genes.txt* (from |scHPF score|_ with
+the ``-g`` option). For example, if genes for two cell types appear in the same
+factor, one might increase *K*. Resolution can also be assessed quantitatively
+using 
+:ref:`cell type respresentation<type-rep>`, or 
+:ref:`other quantitative criteria<k-criteria>`.
 
-    0. (Optional) Do a trial run to make sure everything is working, data is
-       formatted correctly, etc., especially if you haven't run scHPF before.
+When using this approach, we encourage the user to always try at least two
+values of *K* in any direction, as scHPF is multimodal and behavior is not
+always monotonic. *K* in the neighborhood of the number of clusters is often a
+good starting point.
+
+.. _multi-model-example:
+
+Consistent choices across multiple models
+-----------------------------------------
+Applying scHPF separately to multiple partitions (as in [SzaboLevitin2019]_)
+necessitates a uniform procedure for choosing the number of factors.  To
+maximize interpretability while being quantitative and consistent across
+models, we usually train scHPF across a range of *K*'s for each partition and
+select the per-dataset number of factors using a heuristic suitable to our
+intended application 
+(:ref:`example criteria<k-criteria>`). An example workflow might be:
+
+
+    0. (Optional) Do a trial run on a single partition to make sure everything
+       is working, data is formatted correctly, etc., especially if you haven't
+       run scHPF before.
 
     1. Choose an appropriate selection criteria for the problem at hand 
        (:ref:`examples<k-criteria>`).
@@ -40,14 +66,15 @@ heuristic suitable to our intended application
     3. :ref:`Train<train-cli>` scHPF models for K in 
        range(|K_min|,  |K_max| +1).  *Advanced note*: I sometimes use a step.
        size of 2 or 3 on the first pass to check that the range is reasonable,
-       but recommend a final step of 1 (scHPF uses non-convex optimization, so
-       results may not be monotonic).
+       but recommend a final step of 1 (scHPF is multimodal, so results may not
+       be monotonic).
 
     4. Evaluate the models using the selection criteria from 1. Expand/refine
        the range accordingly.  For example, if |K_max| passes our criteria, we
        should increase |K_max|.
 
     5. Repeat 3-5 as needed.
+
       
 .. |K_min| replace:: *K*:sub:`min`
 
@@ -106,11 +133,11 @@ The |scHPF score|_ command automatically produces the file
 *maximum_overlaps.txt*, which contains factors' maximum pairwise overlap and
 corresponding hypergeometric *p* values at different cutoffs.
 
-For standard significance thresholds and reasonable *n*, this method is
-extremely strict, resulting in lower granularity factorizations for some
-datasets. Using :ref:`cellular resolution<cell-res>` or 
+For standard significance thresholds and reasonable *n*, this method can be
+quite strict, resulting in lower granularity factorizations for some datasets.
+Using :ref:`cellular resolution<cell-res>` or 
 :ref:`cell type respresentation<type-rep>` may find higher resolution 
-factorizations.
+factorizations in these cases.
 
 .. |scHPF score| replace:: ``scHPF score``
 .. _scHPF score: score-cli.html
