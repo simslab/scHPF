@@ -46,6 +46,13 @@ def compute_pois_llh(X_data, X_row, X_col,
     return llh
 
 
+def compute_pois_llh_sthread(X_data, X_row, X_col,
+                             theta_vi_shape, theta_vi_rate,
+                             beta_vi_shape, beta_vi_rate):
+    """ Single-threaded version of compute_pois_llh"""
+    raise NotImplementedError()
+
+
 @numba.njit(parallel=True, nogil=True)
 def compute_Xphi_data(X_data, X_row, X_col,
                      theta_vi_shape, theta_vi_rate,
@@ -107,6 +114,13 @@ def compute_Xphi_data(X_data, X_row, X_col,
             Xphi[i,k] = X_data[i] * rho_shift[k] / normalizer
 
     return Xphi
+
+
+def compute_Xphi_data_sthread(X_data, X_row, X_col, theta_vi_shape,
+        theta_vi_rate, beta_vi_shape, beta_vi_rate):
+    """Single-threaded version of compute_Xphi_data
+    """
+    raise NotImplementedError()
 
 
 @numba.njit(fastmath=True) #results unstable with prange. don't do it.

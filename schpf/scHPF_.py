@@ -450,7 +450,7 @@ class scHPF(BaseEstimator):
 
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
             min_iter=None, max_iter=None, epsilon=None, check_freq=None,
-            checkstep_function=None, verbose=None):
+            single_thread=False, checkstep_function=None, verbose=None ):
         """Combined internal fit/transform function
 
         Parameters
@@ -485,6 +485,8 @@ class scHPF(BaseEstimator):
         check_freq : int, optional (Default: None)
             Replaces self.check_freq if given.  Useful when projecting
             new data onto an existing scHPF model.
+        single_thread : bool, optional (Default: False)
+            Use single-threaded versions of updates
         checkstep_function : function  (optional, default None)
             A function that takes arguments bp, dp, xi, eta, theta, beta,
             and t and, if given, is called at check_interval. Intended use
@@ -545,9 +547,14 @@ class scHPF(BaseEstimator):
                         X.data.shape[0])
                 Xphi_data = X.data[:,None] * random_phi
             else:
-                Xphi_data = compute_Xphi_data(X.data, X.row, X.col,
-                                            theta.vi_shape, theta.vi_rate,
-                                            beta.vi_shape, beta.vi_rate)
+                if single_thread:
+                    Xphi_data = compute_Xphi_data_sthread(
+                            X.data, X.row, X.col, theta.vi_shape,
+                            theta.vi_rate, beta.vi_shape, beta.vi_rate)
+                else:
+                    Xphi_data = compute_Xphi_data(
+                            X.data, X.row, X.col, theta.vi_shape,
+                            theta.vi_rate, beta.vi_shape, beta.vi_rate)
 
             # gene updates (if not frozen)
             if not freeze_genes:
@@ -885,7 +892,9 @@ def run_trials(X, nfactors,
         print(msg)
 
     # get the loss function for any data
-    if loss_function is None: loss_function = ls.mean_negative_pois_llh
+    if loss_function is None:
+        loss_function = funtools.partial(ls.mean_negative_pois_llh,
+                single_thread=single_thread)
 
     # check data we're using for loss
     if vcells is not None: assert X.shape[1] == vcells.shape[1]
