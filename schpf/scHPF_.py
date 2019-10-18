@@ -548,9 +548,7 @@ class scHPF(BaseEstimator):
                 Xphi_data = X.data[:,None] * random_phi
             else:
                 if single_thread:
-                    Xphi_data = compute_Xphi_data_sthread(
-                            X.data, X.row, X.col, theta.vi_shape,
-                            theta.vi_rate, beta.vi_shape, beta.vi_rate)
+                    Xphi_data = compute_Xphi_data_numpy(X, theta, beta)
                 else:
                     Xphi_data = compute_Xphi_data(
                             X.data, X.row, X.col, theta.vi_shape,

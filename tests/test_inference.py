@@ -51,6 +51,10 @@ def test_compute_Xphi_numba(data, model):
                 model.beta.vi_shape, model.beta.vi_rate),
             Xphi,
             rtol=1e-5 if model.dtype==np.float32 else 1e-7, atol=0)
+    assert_allclose(
+            hpf_numba.compute_Xphi_data_numpy(data, model.theta, model.beta),
+            Xphi,
+            rtol=1e-5 if model.dtype==np.float32 else 1e-7, atol=0)
 
 
 def test_compute_theta_shape_numba(model, Xphi, data):

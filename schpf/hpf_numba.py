@@ -3,6 +3,11 @@
 import ctypes
 import numpy as np
 from scipy.sparse import coo_matrix
+try:
+    from scipy.misc import logsumexp
+except ImportError:
+    from scipy.special import logsumexp
+
 import numba
 from numba.extending import get_cython_function_address as getaddr
 
@@ -44,13 +49,6 @@ def compute_pois_llh(X_data, X_row, X_col,
         llh[i] = X_data[i] * np.log(e_rate) - e_rate \
             - cgammaln(X_data[i] + 1.0)
     return llh
-
-
-def compute_pois_llh_sthread(X_data, X_row, X_col,
-                             theta_vi_shape, theta_vi_rate,
-                             beta_vi_shape, beta_vi_rate):
-    """ Single-threaded version of compute_pois_llh"""
-    raise NotImplementedError()
 
 
 @numba.njit(parallel=True, nogil=True)
@@ -116,11 +114,12 @@ def compute_Xphi_data(X_data, X_row, X_col,
     return Xphi
 
 
-def compute_Xphi_data_sthread(X_data, X_row, X_col, theta_vi_shape,
-        theta_vi_rate, beta_vi_shape, beta_vi_rate):
+def compute_Xphi_data_numpy(X, theta, beta):
     """Single-threaded version of compute_Xphi_data
     """
-    raise NotImplementedError()
+    logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
+    logphi = logrho - logsumexp(logrho, axis=1)[:,None]
+    return X.data[:,None] * np.exp(logphi)
 
 
 @numba.njit(fastmath=True) #results unstable with prange. don't do it.
