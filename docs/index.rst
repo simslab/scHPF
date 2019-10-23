@@ -18,11 +18,10 @@ on sparse scRNA-seq datasets.
 
 Algorithmic details, benchmarking against alternative methods, and scHPF's
 application to a spatially sampled high-grade glioma can be found in 
-`our paper at Molecular Systems Biology`_.
+[Levitin2019]_.
 
-.. _our paper at Molecular Systems Biology: https://doi.org/10.15252/msb.20188557
 
-You can find the software `on github <https://www.embopress.org/doi/full/10.15252/msb.20188557>`_.
+You can find the software `on github <https://www.https://github.com/simslab/scHPF>`_.
 
 .. toctree::
     :maxdepth: 1

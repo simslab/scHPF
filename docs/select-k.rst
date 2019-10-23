@@ -29,7 +29,7 @@ per-factor ranked gene lists in *ranked_genes.txt* (from |scHPF score|_ with
 the ``-g`` option). For example, if genes for two cell types appear in the same
 factor, one might increase *K*. Resolution can also be assessed quantitatively
 using 
-:ref:`cell type respresentation<type-rep>`, or 
+:ref:`cell type representation<type-rep>`, or 
 :ref:`other quantitative criteria<k-criteria>`.
 
 When using this approach, we encourage the user to always try at least two
