@@ -1,21 +1,39 @@
 #! /usr/bin/env python
 
 import os
+import sys
 import argparse
 import json
 import time
+from functools import partial
+
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
 
 import numpy as np
 import pandas as pd
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
 
-from schpf import scHPF, load_model, save_model, run_trials
+from schpf import scHPF, load_model, save_model, run_trials, run_trials_pool
 from schpf.util import max_pairwise_table, mean_cellscore_fraction_list
 from schpf.preprocessing import load_coo, load_and_filter, load_like
 from schpf.preprocessing import split_validation_cells
 
 def _parser():
+    # usage = """scHPF <command> [<args>]
+
+# The most commonly used scHPF commands are:
+    # prep    Prepare data
+    # train   Train a model from data
+    # score   Get cell-scores, gene-scores, and other data
+
+# Some advanced scHPF commands are:
+    # prep-like    Prepare data with the same genes & order as other data
+    # project      Project data onto a pre-trained model
+    # train-pool   Train a model, parallelized at the level of trials
+    # """
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='cmd')
 
@@ -167,6 +185,14 @@ def _parser():
             help="Use 32-bit floats instead of default 64-bit floats in "
             "variational distrubtions")
 
+    ###### train with trials in threadpool
+    train_pool = subparsers.add_parser('train-pool', parents=[train], 
+            add_help=False)
+    train_pool.add_argument('--njobs', type=int, default=0,
+            help='Max number of processes to spawn. 0 will use the minimum of'
+            ' all available cores and ntrials.'
+            )
+
 
     ### Score command
     score = subparsers.add_parser('score')
@@ -191,6 +217,7 @@ def _parser():
             ' than the index of ``--genefile``\'s last column, it is '
             ' automatically reset to the last column\'s index. [Default 1]'
         )
+
 
 
     # ###### Project command
@@ -233,10 +260,15 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
+    # print help if no subparser given
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
     # setup paths and prefixes
 
     if args.outdir is None:
-        if args.cmd in ['prep', 'prep-like', 'train']:
+        if args.cmd in ['prep', 'prep-like', 'train', 'train_pool']:
             args.outdir = args.input.rsplit('/', 1)[0]
         elif args.cmd=='project':
             args.outdir = args.model.rsplit('/',1)[0]
@@ -301,7 +333,7 @@ if __name__=='__main__':
             json.dump(args.__dict__, f, indent=2)
 
 
-    elif args.cmd == 'train':
+    elif args.cmd in ['train', 'train-pool']:
         # load data
         print( 'Loading data.....' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
@@ -329,7 +361,16 @@ if __name__=='__main__':
         print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
         model_kwargs = dict(a=args.a, c=args.c)
-        model = run_trials(train, vcells=vcells,
+
+        if args.cmd == 'train':
+            run_fnc = run_trials
+        else:
+            if args.njobs < 0:
+                msg = 'njobs must be an int >= 0, received {}'
+                raise ValueError(msg.format(args.njobs))
+            run_fnc = partial(run_trials_pool, njobs=args.njobs)
+
+        model = run_fnc(train, vcells=vcells,
                     nfactors=args.nfactors, ntrials=args.ntrials,
                     min_iter=args.min_iter, max_iter=args.max_iter,
                     check_freq=args.check_freq, epsilon=args.epsilon,
@@ -386,14 +427,6 @@ if __name__=='__main__':
         table = max_pairwise_table(gene_score, 
                 ntop_list=[50,100,150,200,250,300,350,400,450,500])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
-        # # Make second table w/percent cutoffs
-        # percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
-        # p_ntop = [int(p*len(gene_score)) for p in percents]
-        # table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
-        # table2['percent'] = percents # add percent column
-        # table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
-        # table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
-                # index=False)
 
         if args.genefile is not None:
             print('Ranking genes.....')

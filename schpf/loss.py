@@ -8,6 +8,7 @@ given dataset
 
 import functools
 import numpy as np
+from scipy.special import gammaln
 
 from schpf.hpf_numba import compute_pois_llh
 
@@ -103,7 +104,7 @@ def projection_loss_function(loss_function, X, nfactors,
 
 #### Loss functions
 
-def pois_llh_pointwise(X, *, theta, beta, single_thread=False, **kwargs):
+def pois_llh_pointwise(X, *, theta, beta, single_process=False, **kwargs):
     """Poisson log-likelihood for each nonzero entry
 
     Parameters
@@ -112,7 +113,7 @@ def pois_llh_pointwise(X, *, theta, beta, single_thread=False, **kwargs):
         Data to compute Poisson log likelihood of. Assumed to be nonzero.
     theta : HPF_Gamma
     beta : HPF_Gamma
-    single_thread: bool, optiona (Default: False)
+    single_process: bool, optiona (Default: False)
         use single-threaded version of llh
     **kwargs : dict, optional
         extra arguments not used in this loss function
@@ -128,7 +129,7 @@ def pois_llh_pointwise(X, *, theta, beta, single_thread=False, **kwargs):
     must be passed to the function as a keyword argument, and the function
     will accept unused keyword args.
     """
-    if single_thread:
+    if single_process:
         e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
         llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
     else:
@@ -138,7 +139,7 @@ def pois_llh_pointwise(X, *, theta, beta, single_thread=False, **kwargs):
     return llh
 
 
-def mean_negative_pois_llh(X, *, theta, beta, single_thread=False, **kwargs):
+def mean_negative_pois_llh(X, *, theta, beta, single_process=False, **kwargs):
     """Mean Poisson log-likelihood for each nonzero entry
 
     Parameters
@@ -147,7 +148,7 @@ def mean_negative_pois_llh(X, *, theta, beta, single_thread=False, **kwargs):
         Data to compute Poisson log likelihood of. Assumed to be nonzero.
     theta : HPF_Gamma
     beta : HPF_Gamma
-    single_thread: bool, optional (Default: False)
+    single_process: bool, optional (Default: False)
         use single-threaded version of pointwise loss
     **kwargs : dict, optional
         extra arguments not used in this loss function
@@ -164,4 +165,4 @@ def mean_negative_pois_llh(X, *, theta, beta, single_thread=False, **kwargs):
     will accept unused keyword args.
     """
     return np.mean( -pois_llh_pointwise(X=X, theta=theta, beta=beta,
-        single_thread=single_thread) )
+        single_process=single_process) )

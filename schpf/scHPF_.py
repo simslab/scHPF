@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-
 from copy import deepcopy
 from warnings import warn
+from functools import partial
+from multiprocessing import cpu_count
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -12,7 +13,26 @@ except ImportError:
     from scipy.special import logsumexp
 
 from sklearn.base import BaseEstimator
-from sklearn.externals import joblib
+import joblib
+from joblib import Parallel, delayed
+
+# from collections import defaultdict
+# class BatchCompletionCallBack(object):
+  # completed = defaultdict(int)
+
+  # def __init__(self, time, index, parallel):
+    # self.index = index
+    # self.parallel = parallel
+
+  # def __call__(self, index):
+    # BatchCompletionCallBack.completed[self.parallel] += 1
+    # print("done with {}".format(BatchCompletionCallBack.completed[self.parallel]))
+    # if self.parallel._original_iterator is not None:
+      # self.parallel.dispatch_next()
+# import joblib.parallel
+# joblib.parallel.BatchCompletionCallBack = BatchCompletionCallBack
+
+# from sklearn.externals import joblib
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
@@ -450,7 +470,7 @@ class scHPF(BaseEstimator):
 
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
             min_iter=None, max_iter=None, epsilon=None, check_freq=None,
-            single_thread=False, checkstep_function=None, verbose=None ):
+            single_process=False, checkstep_function=None, verbose=None ):
         """Combined internal fit/transform function
 
         Parameters
@@ -485,7 +505,7 @@ class scHPF(BaseEstimator):
         check_freq : int, optional (Default: None)
             Replaces self.check_freq if given.  Useful when projecting
             new data onto an existing scHPF model.
-        single_thread : bool, optional (Default: False)
+        single_process : bool, optional (Default: False)
             Use single-threaded versions of updates
         checkstep_function : function  (optional, default None)
             A function that takes arguments bp, dp, xi, eta, theta, beta,
@@ -547,7 +567,7 @@ class scHPF(BaseEstimator):
                         X.data.shape[0])
                 Xphi_data = X.data[:,None] * random_phi
             else:
-                if single_thread:
+                if single_process:
                     Xphi_data = compute_Xphi_data_numpy(X, theta, beta)
                 else:
                     Xphi_data = compute_Xphi_data(
@@ -891,8 +911,8 @@ def run_trials(X, nfactors,
 
     # get the loss function for any data
     if loss_function is None:
-        loss_function = funtools.partial(ls.mean_negative_pois_llh,
-                single_thread=single_thread)
+        loss_function = partial(ls.mean_negative_pois_llh,
+                single_process=False)
 
     # check data we're using for loss
     if vcells is not None: assert X.shape[1] == vcells.shape[1]
@@ -947,3 +967,134 @@ def run_trials(X, nfactors,
             print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
     return best_model
+
+
+# TODO deal with verbosity
+def run_trials_pool(X, nfactors,
+        ntrials=5,
+        njobs=0,
+        max_threads=None,
+        min_iter=30,
+        max_iter=1000,
+        check_freq=10,
+        epsilon=0.001,
+        better_than_n_ago=5,
+        dtype=np.float64,
+        verbose=True,
+        vcells = None,
+        vX = None,
+        loss_function=None,
+        model_kwargs = {}
+        ):
+    """
+    Train with multiple random initializations, selecting model with best loss.
+    Parallelization is done at the trial level rather than within computations
+
+    As scHPF uses non-convex optimization, it benefits from training with
+    multiple random initializations to avoid local minima.
+
+    Parameters
+    ----------
+    X: coo_matrix
+        Data to fit
+    nfactors: int
+        Number of factors (K)
+    ntrials : int,  optional (Default 5)
+        Number of random initializations for training
+    njobs : int, optional (Default 0)
+        Maximum number of threads in the threadpool.  0 will use all available.
+    min_iter: int, optional (Default 30)
+        Minimum number of interations for training.
+    max_iter: int, optional (Default 1000):
+        Maximum number of interations for training.
+    check_freq: int, optional (Default 10)
+        Number of training iterations between calculating loss.
+    epsilon: float, optional (Default 0.001)
+        Percent change of loss for convergence.
+    better_than_n_ago: int, optional (Default 5)
+        Stop condition if loss is getting worse.  Stops training if loss
+        is worse than `better_than_n_ago`*`check_freq` training steps
+        ago and getting worse.
+    dtype : datatype, optional (Default np.float64)
+        np.float64 or np.float32
+    verbose: bool, optional (Default True)
+        verbose
+    vcells : coo_matrix, optional (Default None)
+        cells to use in a validation loss function
+    vX : coo_matrix, optional (Default None)
+        nonzero entries from the cells in vX
+    loss_function : function, optional (Default None)
+        A loss function that accepts data, model variational parameters,
+        and model hyperparameters.  Note this is distinct from the
+        `loss_function` argument in scHPF._fit (called by scHPF.fit and
+        scHPF.project), which assumes a fixed reference to data is included
+        in the function and *does not* accept data as an argument.
+    model_kwargs: dict, optional (Default {})
+        dictionary of additional keyword arguments for model
+        initialization
+
+
+    Returns
+    -------
+    best_model: scHPF
+        The model with the best loss facter `ntrials` random initializations
+        and training runs
+    """
+    ngenes = X.shape[1]
+    if ngenes >= 20000:
+        msg = 'WARNING: you are running scHPF with {} genes,'.format(ngenes)
+        msg += ' which is more than the ~20k protein coding genes in the'
+        msg += ' human genome. We suggest running scHPF on protein-coding'
+        msg += ' genes only.'
+        print(msg)
+
+    # get the loss function for any data
+    if loss_function is None:
+        loss_function = partial(ls.mean_negative_pois_llh,
+                single_process=True)
+
+    # check data we're using for loss
+    if vcells is not None: assert X.shape[1] == vcells.shape[1]
+    if vX is not None: assert vX.shape == X.shape
+    else: vX = X
+    # setup loss fnc w/data (will be overridden if vcells is not None)
+    data_loss_function = ls.loss_function_for_data(loss_function, vX)
+
+    # only need to create once because will be copied to processes
+    model = scHPF(nfactors=nfactors,
+                min_iter=min_iter, max_iter=max_iter,
+                check_freq=check_freq, epsilon=epsilon,
+                better_than_n_ago=better_than_n_ago,
+                verbose=False, dtype=dtype,
+                **model_kwargs
+                )
+    # override the loss function data if we have vcells
+    # (must be redone for each new model)
+    if vcells is not None:
+        proj_kwargs = dict(reinit=False,
+                            min_iter=1,
+                            max_iter=min(10, check_freq),
+                            check_freq= check_freq+1,
+                            verbose=False
+                            )
+        data_loss_function = ls.projection_loss_function(
+                loss_function, vcells, nfactors,
+                proj_kwargs=proj_kwargs)
+
+
+    # set max processes if not given
+    if njobs == 0: njobs = min(cpu_count(),ntrials)
+
+    # function to fit model
+    def fit_model():
+        # fit the model
+        model.fit(X, loss_function=data_loss_function,
+                checkstep_function=None, single_process=True)
+        return model
+
+    with Parallel(n_jobs=njobs, verbose=10) as pool: # make the pool
+        candidates = pool( delayed(fit_model)() for _ in range(ntrials) )
+    loss = [m.loss[-1] for m in candidates]
+    best_ix = np.argmin(loss)
+
+    return candidates[best_ix]

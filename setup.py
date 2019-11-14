@@ -11,13 +11,14 @@ requires = ['scikit-learn',
             "numba >= 0.44; python_version>='3.7.4'",
             'scipy >= 1.1',
             'numpy',
-            'pandas'
+            'pandas',
+            'joblib'
             ]
 
 tests_require = ['pytest']
 extras_require = {
         'loompy' : ['loompy'],
-        'docs' : ['sphinx-argparse']
+        'docs' : ['sphinx-argparse'],
         }
 
 setup(
