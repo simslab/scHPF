@@ -187,11 +187,13 @@ def _parser():
 
     ###### train with trials in threadpool
     train_pool = subparsers.add_parser('train-pool', parents=[train], 
-            add_help=False)
+            add_help=False, conflict_handler='resolve')
     train_pool.add_argument('--njobs', type=int, default=0,
             help='Max number of processes to spawn. 0 will use the minimum of'
-            ' all available cores and ntrials.'
-            )
+            ' all available cores and ntrials.')
+    # Required model hyperparameter
+    train_pool.add_argument('-k', '--nfactors', nargs='+', type=int, 
+        required=True, help='Number of factors.')
 
 
     ### Score command
@@ -378,20 +380,29 @@ if __name__=='__main__':
                     dtype=dtype, verbose=args.verbose,
                     model_kwargs=model_kwargs)
 
-        # save the model
-        model_outprefix = '{}scHPF_K{}_{}trials'.format(
-                    outprefix, args.nfactors, args.ntrials)
-        if vcells is None:
-            print('Saving best model.....')
-            save_model(model, model_outprefix + '.joblib')
+        # save the model/models
+        if isinstance(args.nfactors, int):
+            klist = [args.nfactors]
+            model = [model]
         else:
-            print('Saving best model (training data).....')
-            save_model(model, model_outprefix + '.train.joblib')
+            klist = args.nfactors
+        for K, m in zip(klist, model):
+            model_outprefix = '{}scHPF_K{}_{}trials'.format(
+                        outprefix, K, args.ntrials)
+            if vcells is None:
+                print('Saving best model ({} factors).....'.format(K))
+                save_model(m, model_outprefix + '.joblib')
+            else:
+                print('Saving best model (training data, {} factors).....'\
+                        .format(K))
+                save_model(m, model_outprefix + '.train.joblib')
 
-            print('Computing final validation projection....')
-            projection = model.project(vcells, replace=False)
-            print('Saving validation projection.....')
-            save_model(projection, model_outprefix + '.validaton_proj.joblib')
+                print('Computing final validation projection ({} factors)....'\
+                        .format(K))
+                projection = m.project(vcells, replace=False)
+                print('Saving validation projection.....({} factors)'.format(K))
+                save_model(projection, 
+                        model_outprefix + '.validaton_proj.joblib')
 
         print('Writing commandline arguments to file.....')
         cmdfile = '{}train_commandline_args.json'.format(outprefix)

@@ -997,8 +997,8 @@ def run_trials_pool(X, nfactors,
     ----------
     X: coo_matrix
         Data to fit
-    nfactors: int
-        Number of factors (K)
+    nfactors: int or list of ints
+        Number of factors (K), may be a list for multiple k
     ntrials : int,  optional (Default 5)
         Number of random initializations for training
     njobs : int, optional (Default 0)
@@ -1036,7 +1036,7 @@ def run_trials_pool(X, nfactors,
 
     Returns
     -------
-    best_model: scHPF
+    best_model: scHPF or list of scHPF
         The model with the best loss facter `ntrials` random initializations
         and training runs
     """
@@ -1061,13 +1061,6 @@ def run_trials_pool(X, nfactors,
     data_loss_function = ls.loss_function_for_data(loss_function, vX)
 
     # only need to create once because will be copied to processes
-    model = scHPF(nfactors=nfactors,
-                min_iter=min_iter, max_iter=max_iter,
-                check_freq=check_freq, epsilon=epsilon,
-                better_than_n_ago=better_than_n_ago,
-                verbose=False, dtype=dtype,
-                **model_kwargs
-                )
     # override the loss function data if we have vcells
     # (must be redone for each new model)
     if vcells is not None:
@@ -1082,19 +1075,41 @@ def run_trials_pool(X, nfactors,
                 proj_kwargs=proj_kwargs)
 
 
-    # set max processes if not given
-    if njobs == 0: njobs = min(cpu_count(),ntrials)
 
     # function to fit model
-    def fit_model():
+    def fit_model(nfactors):
+        model = scHPF(nfactors=nfactors,
+                    min_iter=min_iter, max_iter=max_iter,
+                    check_freq=check_freq, epsilon=epsilon,
+                    better_than_n_ago=better_than_n_ago,
+                    verbose=False, dtype=dtype,
+                    **model_kwargs
+                    )
         # fit the model
         model.fit(X, loss_function=data_loss_function,
-                checkstep_function=None, single_process=True)
+                  checkstep_function=None, single_process=True)
         return model
 
-    with Parallel(n_jobs=njobs, verbose=10) as pool: # make the pool
-        candidates = pool( delayed(fit_model)() for _ in range(ntrials) )
-    loss = [m.loss[-1] for m in candidates]
-    best_ix = np.argmin(loss)
+    # get nfactors for every trial
+    if isinstance(nfactors, int):
+        nfactors = [nfactors]
+    trial_nfactors = [t for trial_set in [[K]*ntrials for K in nfactors] \
+            for t in trial_set]
 
-    return candidates[best_ix]
+    # set max processes if not given
+    if njobs == 0: njobs = min(cpu_count(), len(trial_nfactors))
+
+    # training
+    with Parallel(n_jobs=njobs, verbose=10) as pool: # make the pool
+        candidates = pool( delayed(fit_model)(K)  for K in trial_nfactors)
+
+    # get the best model for every K
+    ordered_best = []
+    for i,K in enumerate(nfactors):
+        my_candidates = candidates[i*ntrials : (i+1)*ntrials]
+        loss = [m.loss[-1] for m in my_candidates]
+        print(list(zip([m.nfactors for m in my_candidates],loss)))
+        best_ix = np.argmin(loss)
+        print(my_candidates[best_ix].loss[-1])
+        ordered_best.append(my_candidates[best_ix])
+    return ordered_best
