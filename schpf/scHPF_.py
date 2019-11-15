@@ -1108,8 +1108,9 @@ def run_trials_pool(X, nfactors,
     for i,K in enumerate(nfactors):
         my_candidates = candidates[i*ntrials : (i+1)*ntrials]
         loss = [m.loss[-1] for m in my_candidates]
-        print(list(zip([m.nfactors for m in my_candidates],loss)))
+        # print(list(zip([m.nfactors for m in my_candidates],loss)))
         best_ix = np.argmin(loss)
-        print(my_candidates[best_ix].loss[-1])
+        # pri:w
+        (my_candidates[best_ix].loss[-1])
         ordered_best.append(my_candidates[best_ix])
     return ordered_best
