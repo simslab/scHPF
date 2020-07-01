@@ -44,7 +44,7 @@ listed below, as well as known-bad combination, but note this is not an
 exhaustive list:
 
 **Python 3.7.9**
-    Compatible numba:  0.45, 0.46, 0.47, 0.48, 0.50
+    Compatible numba:  0.45-0.50
     DO NOT USE: 0.44 or earlier
 **Python 3.7.5 - 3.7.8**
     Not tested
