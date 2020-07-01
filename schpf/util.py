@@ -213,3 +213,19 @@ def insert_coo_rows(a, b, b_indices):
             (np.hstack(data), np.hstack(indices), np.array(indptr)),
             out_shape).tocoo()
     return ab
+
+
+def minibatch_ix_generator(ncells, batchsize):
+    assert ncells >= batchsize # allow equalitiy for testing
+    ixs = np.arange(ncells)
+    np.random.shuffle(ixs)
+    start = 0
+    while True:
+        stop = start + batchsize
+        if stop > ncells:
+            stop = stop % ncells
+            res = np.hstack([ixs[start:ncells], ixs[0:stop]])
+        else:
+            res = ixs[start:stop]
+        start = stop % ncells # need mod for case where ncells=batchsize
+        yield res

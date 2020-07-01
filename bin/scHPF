@@ -190,6 +190,9 @@ def _parser():
             " convergence, but before model selection")
     train.add_argument('-sa', '--save-all', action='store_true',
             help="Save all trials")
+    train.add_argument('-bs', '--batchsize', default=0, type=int,
+            help="Number of cells to use per training round. All cells used if"
+            " 0.")
 
     ###### train with trials in threadpool
     train_pool = subparsers.add_parser('train-pool', parents=[train], 
@@ -386,7 +389,8 @@ if __name__=='__main__':
                         check_freq=args.check_freq, epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
-                        return_all=True, reproject=args.reproject
+                        return_all=True, reproject=args.reproject,
+                        batchsize=args.batchsize
                         )
         else:
             model = run_fnc(train, vcells=vcells, nfactors=args.nfactors, 
@@ -395,7 +399,8 @@ if __name__=='__main__':
                         epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
-                        return_all=False, reproject=args.reproject
+                        return_all=False, reproject=args.reproject,
+                        batchsize=args.batchsize
                         )
 
         # save the model/models
