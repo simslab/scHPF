@@ -15,8 +15,9 @@ import numpy as np
 import pandas as pd
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
+import joblib
 
-from schpf import scHPF, load_model, save_model, run_trials, run_trials_pool
+from schpf import scHPF, run_trials, run_trials_pool
 from schpf.util import max_pairwise_table, mean_cellscore_fraction_list
 from schpf.preprocessing import load_coo, load_and_filter, load_like
 from schpf.preprocessing import split_validation_cells
@@ -184,6 +185,11 @@ def _parser():
     train.add_argument('--float32', action='store_true',
             help="Use 32-bit floats instead of default 64-bit floats in "
             "variational distrubtions")
+    train.add_argument('-rp', '--reproject', action='store_true',
+            help="Reproject data onto fixed global (gene) parameters after"
+            " convergence, but before model selection")
+    train.add_argument('-sa', '--save-all', action='store_true',
+            help="Save all trials")
 
     ###### train with trials in threadpool
     train_pool = subparsers.add_parser('train-pool', parents=[train], 
@@ -372,40 +378,59 @@ if __name__=='__main__':
                 raise ValueError(msg.format(args.njobs))
             run_fnc = partial(run_trials_pool, njobs=args.njobs)
 
-        model = run_fnc(train, vcells=vcells,
-                    nfactors=args.nfactors, ntrials=args.ntrials,
-                    min_iter=args.min_iter, max_iter=args.max_iter,
-                    check_freq=args.check_freq, epsilon=args.epsilon,
-                    better_than_n_ago=args.better_than_n_ago,
-                    dtype=dtype, verbose=args.verbose,
-                    model_kwargs=model_kwargs)
+        reject = None
+        if args.save_all:
+            model, reject = run_fnc(train, vcells=vcells, 
+                        nfactors=args.nfactors, ntrials=args.ntrials,
+                        min_iter=args.min_iter, max_iter=args.max_iter,
+                        check_freq=args.check_freq, epsilon=args.epsilon,
+                        better_than_n_ago=args.better_than_n_ago, dtype=dtype,
+                        verbose=args.verbose, model_kwargs=model_kwargs,
+                        return_all=True, reproject=args.reproject
+                        )
+        else:
+            model = run_fnc(train, vcells=vcells, nfactors=args.nfactors, 
+                        ntrials=args.ntrials, min_iter=args.min_iter,
+                        max_iter=args.max_iter, check_freq=args.check_freq,
+                        epsilon=args.epsilon,
+                        better_than_n_ago=args.better_than_n_ago, dtype=dtype,
+                        verbose=args.verbose, model_kwargs=model_kwargs,
+                        return_all=False, reproject=args.reproject
+                        )
 
         # save the model/models
         if isinstance(args.nfactors, int):
             klist = [args.nfactors]
             model = [model]
+            if reject is not None:
+                reject = [reject]
         else:
             klist = args.nfactors
-        for K, m in zip(klist, model):
+        for i, (K,m) in enumerate(zip(klist, model)):
             model_outprefix = '{}scHPF_K{}_{}trials'.format(
                         outprefix, K, args.ntrials)
             if vcells is None:
                 print('Saving best model ({} factors).....'.format(K))
-                save_model(m, model_outprefix + '.joblib')
+                joblib.dump(m, model_outprefix + '.joblib')
             else:
                 print('Saving best model (training data, {} factors).....'\
                         .format(K))
-                save_model(m, model_outprefix + '.train.joblib')
+                joblib.dump(m, model_outprefix + '.train.joblib')
 
                 print('Computing final validation projection ({} factors)....'\
                         .format(K))
                 projection = m.project(vcells, replace=False)
                 print('Saving validation projection.....({} factors)'.format(K))
-                save_model(projection, 
-                        model_outprefix + '.validaton_proj.joblib')
+                joblib.dump(projection, 
+                        model_outprefix + '.validation_proj.joblib')
+            if args.save_all:
+                for j,r in enumerate(reject[i]):
+                    joblib.dump(r, model_outprefix + f'_reject{j+1}.joblib')
+
 
         print('Writing commandline arguments to file.....')
         cmdfile = '{}train_commandline_args.json'.format(outprefix)
+        print(cmdfile)
         if os.path.exists(cmdfile):
             cmdfile = '{}train_commandline_args.{}.json'.format(outprefix, 
                     time.strftime("%Y%m%d-%H%M%S"))
@@ -417,7 +442,7 @@ if __name__=='__main__':
 
     elif args.cmd == 'score':
         print('Loading model.....')
-        model = load_model(args.model)
+        model = joblib.load(args.model)
 
         print('Calculating scores.....')
         cell_score = model.cell_score()
@@ -468,7 +493,7 @@ if __name__=='__main__':
 
     elif args.cmd == 'project':
         print('Loading reference model.....')
-        model = load_model(args.model)
+        model = joblib.load(args.model)
         print('Loading data.....')
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         proj_data = load_fnc(args.input)
@@ -484,7 +509,7 @@ if __name__=='__main__':
             outprefix += '{}.'.format('recalc_bp')
         proj_out = '{}{}.proj.joblib'.format(outprefix, 
                 args.model.rsplit('.',1)[0].split('/')[-1])
-        save_model(projection, proj_out)
+        joblib.dump(projection, proj_out)
 
         print('Writing commandline arguments to file.....')
         cmdfile = '{}project_commandline_args.json'.format(outprefix)
