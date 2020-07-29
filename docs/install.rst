@@ -9,7 +9,7 @@ Environment & Dependencies
 
 scHPF requires Python >= 3.6 and the packages:
 
-*   numba (:ref:`version requirement depends on python version<numba>`, but will be safe with 0.45)
+*   numba (:ref:`version requirement depends on python version<numba>`, but will be safe with 0.45, and probably 0.45+)
 *   scikit-learn
 *   pandas
 *   (optional) loompy
@@ -39,13 +39,21 @@ numba compatibility
 -------------------
 Certain micro-versions of Python and numba do not play well together, resulting
 in segmentation faults and/or horrible performance (at least for the ops scHPF
-uses).  In our experience, micro-version combos that avoid these issues seem to
-be:
+uses).  In our experience, micro-version combos that avoid these issues are
+listed below, as well as known-bad combination, but note this is not an
+exhaustive list:
 
-**Python <=3.7.3**
-    Compatible numba: 0.39, 0.40, 0.44, 0.45
+**Python 3.7.9**
+    Compatible numba:  0.45-0.50
+    DO NOT USE: 0.44 or earlier
+**Python 3.7.5 - 3.7.8**
+    Not tested
 **Python 3.7.4**
     Compatible numba: 0.44, 0.45
+    DO NOT USE: 0.43 or earlier
+**Python <=3.7.3**
+    Compatible numba: 0.39, 0.40, 0.44, 0.45
+    DO NOT USE: 0.41-0.43
 
 *Please* let us know about any weird errors/slowness your experience so we can 
 document!

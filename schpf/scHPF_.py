@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-
 from copy import deepcopy
 from warnings import warn
+from functools import partial
+from multiprocessing import cpu_count
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -12,7 +13,9 @@ except ImportError:
     from scipy.special import logsumexp
 
 from sklearn.base import BaseEstimator
-from sklearn.externals import joblib
+import joblib
+from joblib import Parallel, delayed
+
 
 # TODO warn if can't import, and allow computation with slow
 from schpf.hpf_numba import *
@@ -338,7 +341,7 @@ class scHPF(BaseEstimator):
         return ls.pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
 
-    def mean_negative_pois_llh(X, theta=None, beta=None, **kwargs):
+    def mean_negative_pois_llh(self, X, theta=None, beta=None, **kwargs):
         """Convenience method for mean negative llh of nonzero entries
 
         """
@@ -370,7 +373,7 @@ class scHPF(BaseEstimator):
         return self
 
 
-    def project(self, X, recalc_bp=False, replace=False, min_iter=2, max_iter=30,
+    def project(self, X, recalc_bp=False, replace=False, min_iter=2, max_iter=50,
             check_freq=2, **kwargs):
         """Project new cells into latent space
 
@@ -450,7 +453,7 @@ class scHPF(BaseEstimator):
 
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
             min_iter=None, max_iter=None, epsilon=None, check_freq=None,
-            checkstep_function=None, verbose=None):
+            single_process=False, checkstep_function=None, verbose=None ):
         """Combined internal fit/transform function
 
         Parameters
@@ -485,6 +488,8 @@ class scHPF(BaseEstimator):
         check_freq : int, optional (Default: None)
             Replaces self.check_freq if given.  Useful when projecting
             new data onto an existing scHPF model.
+        single_process : bool, optional (Default: False)
+            Use single-threaded versions of updates
         checkstep_function : function  (optional, default None)
             A function that takes arguments bp, dp, xi, eta, theta, beta,
             and t and, if given, is called at check_interval. Intended use
@@ -545,9 +550,12 @@ class scHPF(BaseEstimator):
                         X.data.shape[0])
                 Xphi_data = X.data[:,None] * random_phi
             else:
-                Xphi_data = compute_Xphi_data(X.data, X.row, X.col,
-                                            theta.vi_shape, theta.vi_rate,
-                                            beta.vi_shape, beta.vi_rate)
+                if single_process:
+                    Xphi_data = compute_Xphi_data_numpy(X, theta, beta)
+                else:
+                    Xphi_data = compute_Xphi_data(
+                            X.data, X.row, X.col, theta.vi_shape,
+                            theta.vi_rate, beta.vi_shape, beta.vi_rate)
 
             # gene updates (if not frozen)
             if not freeze_genes:
@@ -823,7 +831,10 @@ def run_trials(X, nfactors,
         vcells = None,
         vX = None,
         loss_function=None,
-        model_kwargs = {}
+        model_kwargs = {},
+        return_all = False,
+        reproject = False,
+        reproject_kwargs = {}
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -860,14 +871,24 @@ def run_trials(X, nfactors,
     vX : coo_matrix, optional (Default None)
         nonzero entries from the cells in vX
     loss_function : function, optional (Default None)
-        A loss function that accepts data, model variational parameters,
-        and model hyperparameters.  Note this is distinct from the
-        `loss_function` argument in scHPF._fit (called by scHPF.fit and
-        scHPF.project), which assumes a fixed reference to data is included
-        in the function and *does not* accept data as an argument.
+        A loss function to asses convergence that accepts data, model
+        variational parameters, and model hyperparameters.  Note this is
+        distinct from the `loss_function` argument in scHPF._fit (called by
+        scHPF.fit and scHPF.project), which assumes a fixed reference to data
+        is included in the function and *does not* accept data as an argument.
     model_kwargs: dict, optional (Default {})
         dictionary of additional keyword arguments for model
         initialization
+    return_all: bool, optional (Default False)
+        return all models
+    reproject: bool, optional (Default False)
+        Reproject the data onto the frozen gene variables before calculating
+        loss. The reprojected loss will be added to the end of loss as a
+        sublist. Note that this reprojection will *not* use the `loss_function`
+        argument, and instead use the default provided log likelihood
+    reproject_kwargs: dict, optional (Default {'replace':True})
+        Only used if `reproject` is True. Keyword args for scHPF.project.
+        'replace':True cannot be changed, and will be overwritten if given
 
 
     Returns
@@ -875,6 +896,9 @@ def run_trials(X, nfactors,
     best_model: scHPF
         The model with the best loss facter `ntrials` random initializations
         and training runs
+    rejected_models: list, optional
+        Rejected models, ordered by decreasing loss . Only returned if
+        return_all is True
     """
     ngenes = X.shape[1]
     if ngenes >= 20000:
@@ -885,7 +909,9 @@ def run_trials(X, nfactors,
         print(msg)
 
     # get the loss function for any data
-    if loss_function is None: loss_function = ls.mean_negative_pois_llh
+    if loss_function is None:
+        loss_function = partial(ls.mean_negative_pois_llh,
+                single_process=False)
 
     # check data we're using for loss
     if vcells is not None: assert X.shape[1] == vcells.shape[1]
@@ -896,6 +922,7 @@ def run_trials(X, nfactors,
 
     # run trials
     best_loss, best_model, best_t = np.finfo(np.float64).max, None, None
+    models, losses = [], [] # only used if return_all
     for t in range(ntrials):
         # make a new model
         model = scHPF(nfactors=nfactors,
@@ -927,16 +954,204 @@ def run_trials(X, nfactors,
         # fit the model
         model.fit(X, loss_function=data_loss_function,
                   checkstep_function=checkstep_function)
+        if reproject:
+            print('Reprojecting data...')
+            reproject_kwargs['replace'] = True
+            proj_loss = model.project(X, **reproject_kwargs)
+            model.loss.append(proj_loss)
+            loss = proj_loss[-1]
+        else:
+            loss = model.loss[-1]
 
-        loss = model.loss[-1]
         if loss < best_loss:
             best_model = model
             best_loss = loss
             best_t = t
             if verbose:
                 print('New best!'.format(t))
+        if return_all:
+            models.append(model)
+            losses.append(loss)
         if verbose:
             print('Trial {0} loss: {1:.6f}'.format(t, loss))
             print('Best loss: {0:.6f} (trial {1})'.format(best_loss, best_t))
 
-    return best_model
+    print(losses)
+    if return_all:
+        return_order = np.argsort(losses)
+        ordered_models = [models[i] for i in return_order]
+        assert ordered_models[0] == best_model
+        return best_model, ordered_models[1:]
+    else:
+        return best_model
+
+
+# TODO deal with verbosity
+def run_trials_pool(X, nfactors,
+        ntrials=5,
+        njobs=0,
+        max_threads=None,
+        min_iter=30,
+        max_iter=1000,
+        check_freq=10,
+        epsilon=0.001,
+        better_than_n_ago=5,
+        dtype=np.float64,
+        verbose=True,
+        vcells = None,
+        vX = None,
+        loss_function=None,
+        model_kwargs = {},
+        return_all = False,
+        reproject = False,
+        reproject_kwargs = {}
+        ):
+    """
+    Train with multiple random initializations, selecting model with best loss.
+    Parallelization is done at the trial level rather than within computations
+
+    As scHPF uses non-convex optimization, it benefits from training with
+    multiple random initializations to avoid local minima.
+
+    Parameters
+    ----------
+    X: coo_matrix
+        Data to fit
+    nfactors: int or list of ints
+        Number of factors (K), may be a list for multiple k
+    ntrials : int,  optional (Default 5)
+        Number of random initializations for training
+    njobs : int, optional (Default 0)
+        Maximum number of threads in the threadpool.  0 will use all available.
+    min_iter: int, optional (Default 30)
+        Minimum number of interations for training.
+    max_iter: int, optional (Default 1000):
+        Maximum number of interations for training.
+    check_freq: int, optional (Default 10)
+        Number of training iterations between calculating loss.
+    epsilon: float, optional (Default 0.001)
+        Percent change of loss for convergence.
+    better_than_n_ago: int, optional (Default 5)
+        Stop condition if loss is getting worse.  Stops training if loss
+        is worse than `better_than_n_ago`*`check_freq` training steps
+        ago and getting worse.
+    dtype : datatype, optional (Default np.float64)
+        np.float64 or np.float32
+    verbose: bool, optional (Default True)
+        verbose
+    vcells : coo_matrix, optional (Default None)
+        cells to use in a validation loss function
+    vX : coo_matrix, optional (Default None)
+        nonzero entries from the cells in vX
+    loss_function : function, optional (Default None)
+        A loss function that accepts data, model variational parameters,
+        and model hyperparameters.  Note this is distinct from the
+        `loss_function` argument in scHPF._fit (called by scHPF.fit and
+        scHPF.project), which assumes a fixed reference to data is included
+        in the function and *does not* accept data as an argument.
+    model_kwargs: dict, optional (Default {})
+        dictionary of additional keyword arguments for model
+        initialization
+    return_all: bool, optional (Default False)
+        return all models
+    reproject: bool, optional (Default False)
+        Reproject the data onto the frozen gene variables before calculating
+        loss. The reprojected loss will be added to the end of loss as a
+        sublist. Note that this reprojection will *not* use the `loss_function`
+        argument, and instead use the default provided log likelihood
+    reproject_kwargs: dict, optional (Default {'replace':True})
+        Only used if `reproject` is True. Keyword args for scHPF.project.
+        'replace':True cannot be changed, and will be overwritten if given
+
+
+    Returns
+    -------
+    best_models: list(scHPF)
+        The model with the best loss facter `ntrials` random initializations
+        and training runs for each value in nfactors
+    rejected_models: list(list(scHPF)), optional
+        Rejected models, ordered by corresponding nfactors and then by
+        decreasing loss . Only returned if return_all is True
+    """
+    ngenes = X.shape[1]
+    if ngenes >= 20000:
+        msg = 'WARNING: you are running scHPF with {} genes,'.format(ngenes)
+        msg += ' which is more than the ~20k protein coding genes in the'
+        msg += ' human genome. We suggest running scHPF on protein-coding'
+        msg += ' genes only.'
+        print(msg)
+
+    # get the loss function for any data
+    if loss_function is None:
+        loss_function = partial(ls.mean_negative_pois_llh,
+                single_process=True)
+
+    # check data we're using for loss
+    if vcells is not None: assert X.shape[1] == vcells.shape[1]
+    if vX is not None: assert vX.shape == X.shape
+    else: vX = X
+    # setup loss fnc w/data (will be overridden if vcells is not None)
+    data_loss_function = ls.loss_function_for_data(loss_function, vX)
+
+    # only need to create once because will be copied to processes
+    # override the loss function data if we have vcells
+    # (must be redone for each new model)
+    if vcells is not None:
+        proj_kwargs = dict(reinit=False,
+                            min_iter=1,
+                            max_iter=min(10, check_freq),
+                            check_freq= check_freq+1,
+                            verbose=False
+                            )
+        data_loss_function = ls.projection_loss_function(
+                loss_function, vcells, nfactors,
+                proj_kwargs=proj_kwargs)
+
+
+    # function to fit model
+    def fit_model(nfactors):
+        model = scHPF(nfactors=nfactors,
+                    min_iter=min_iter, max_iter=max_iter,
+                    check_freq=check_freq, epsilon=epsilon,
+                    better_than_n_ago=better_than_n_ago,
+                    verbose=False, dtype=dtype,
+                    **model_kwargs
+                    )
+        # fit the model
+        model.fit(X, loss_function=data_loss_function,
+                  checkstep_function=None, single_process=True)
+        if reproject:
+            # print('Reprojecting data...')
+            reproject_kwargs['replace'] = True
+            proj_loss = model.project(X, loss_function=data_loss_function,
+                    **reproject_kwargs)
+            model.loss.append(proj_loss)
+        return model
+
+    # get nfactors for every trial
+    if isinstance(nfactors, int):
+        nfactors = [nfactors]
+    trial_nfactors = [t for trial_set in [[K]*ntrials for K in nfactors] \
+            for t in trial_set]
+
+    # set max processes if not given
+    if njobs == 0: njobs = min(cpu_count(), len(trial_nfactors))
+
+    # training
+    with Parallel(n_jobs=njobs, verbose=10) as pool: # make the pool
+        candidates = pool( delayed(fit_model)(K)  for K in trial_nfactors)
+
+    # get the best model for every K
+    ordered_best, ordered_reject = [], []
+    for i,K in enumerate(nfactors):
+        my_candidates = candidates[i*ntrials : (i+1)*ntrials]
+        loss = [m.loss[-1][-1] if reproject else m.loss[-1] for m in
+                my_candidates]
+        # print(list(zip([m.nfactors for m in my_candidates],loss)))
+        best_ix = np.argmin(loss)
+        ordered_best.append(my_candidates[best_ix])
+        ordered_reject.append([my_candidates[i] for i in np.argsort(loss)[1:]])
+    if return_all:
+        return ordered_best, ordered_reject
+    else:
+        return ordered_best

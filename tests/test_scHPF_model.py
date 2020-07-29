@@ -190,5 +190,6 @@ def test_combine_across_cells(data, dtype):
     assert_equal(ab.beta, b.beta)
 
 
+# TODO write this, also do for run_trials_pool
 # def test_run_trials(data):
     # pass

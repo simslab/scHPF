@@ -20,8 +20,8 @@ A typical command to train an scHPF model (using data prepared by the
 
 This command performs approximate Bayesian inference on scHPF with, in this
 instance, seven factors and five different random initializations. scHPF will
-automatically select the trial with the highest log-likelihood, and save the
-model in the OUTDIR in a serialized `joblib`_ file.
+automatically select the trial with the lowest negative log-likelihood, and
+save the model in the OUTDIR in a serialized `joblib`_ file.
 
 Input file format
 =================
