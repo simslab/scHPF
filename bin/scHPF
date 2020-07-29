@@ -159,9 +159,6 @@ def _parser():
             ' Expects same format as ``-i/--input``. Training data used by'
             ' default.'
             )
-    # train.add_argument('-vnz', '--validation-nonzero', 
-            # help='Validation data of selected nonzero entries. Must have same '
-            # 'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -193,6 +190,13 @@ def _parser():
     train.add_argument('-bs', '--batchsize', default=0, type=int,
             help="Number of cells to use per training round. All cells used if"
             " 0.")
+    train.add_argument('-bts', '--beta-theta-simultaneous', action='store_true',
+            help="If False (default), compute beta update, then compute theta"
+            " based on the updated beta. If True, update both based on values"
+            " from the last training round. The later slows the rate of "
+            " convergence and often results in better log-likelihoods, but may"
+            " increase convergence time, especially for large numbers of cells."
+            )
 
     ###### train with trials in threadpool
     train_pool = subparsers.add_parser('train-pool', parents=[train], 
@@ -390,7 +394,8 @@ if __name__=='__main__':
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
                         return_all=True, reproject=args.reproject,
-                        batchsize=args.batchsize
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous
                         )
         else:
             model = run_fnc(train, vcells=vcells, nfactors=args.nfactors, 
@@ -400,7 +405,8 @@ if __name__=='__main__':
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
                         return_all=False, reproject=args.reproject,
-                        batchsize=args.batchsize
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous
                         )
 
         # save the model/models

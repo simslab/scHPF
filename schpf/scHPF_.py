@@ -455,7 +455,7 @@ class scHPF(BaseEstimator):
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
             min_iter=None, max_iter=None, epsilon=None, check_freq=None,
             single_process=False, checkstep_function=None, verbose=None,
-            batchsize=None):
+            batchsize=None, beta_theta_simultaneous=False):
         """Combined internal fit/transform function
 
         Parameters
@@ -499,6 +499,12 @@ class scHPF(BaseEstimator):
             hardcoded data, but is unrestricted.  Use at own risk.
         verbose: bool (optional, default None)
             If not None, overrides self.verbose
+        batchsize: int, optional (Default 0)
+            number of cells per batch. When 0, all cells are used
+        beta_theta_simultaneous: bool, option (Default False)
+            Should updates for beta and theta be computed simultaneously.
+            If False, beta is updated first, and theta is updated using
+            that beta
 
         Returns
         -------
@@ -576,33 +582,52 @@ class scHPF(BaseEstimator):
                             theta.vi_shape[batch_ix], theta.vi_rate[batch_ix],
                             beta.vi_shape, beta.vi_rate)
 
-            # gene updates (if not frozen)
-            if not freeze_genes:
-                # beta.vi_shape = compute_loading_shape_update(Xphi_data,
-                        # X_batch.col, ngenes, c)
-                # beta.vi_rate = compute_loading_rate_update(eta.vi_shape,
-                        # eta.vi_rate, theta.vi_shape[batch_ix],
-                        # theta.vi_rate[batch_ix])
-                # eta.vi_rate = dp + beta.e_x.sum(1)
-                bvs = compute_loading_shape_update(Xphi_data,
-                        X_batch.col, ngenes, c)
-                bvr = compute_loading_rate_update(eta.vi_shape,
-                        eta.vi_rate, theta.vi_shape[batch_ix],
-                        theta.vi_rate[batch_ix])
+            if beta_theta_simultaneous:
+                if not freeze_genes:
+                    bvs = compute_loading_shape_update(Xphi_data,
+                            X_batch.col, ngenes, c)
+                    bvr = compute_loading_rate_update(eta.vi_shape,
+                            eta.vi_rate, theta.vi_shape[batch_ix],
+                            theta.vi_rate[batch_ix])
+                # cell updates
+                theta.vi_shape[batch_ix] = compute_loading_shape_update(
+                        Xphi_data, X_batch.row, batchsize, a)
+                theta.vi_rate[batch_ix] = compute_loading_rate_update(
+                        xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
+                        beta.vi_shape, beta.vi_rate)
+                xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
+                # make gene updates
+                if not freeze_genes:
+                    beta.vi_shape = bvs
+                    beta.vi_rate = bvr
+                    eta.vi_rate = dp + beta.e_x.sum(1)
 
-            # cell updates
-            theta.vi_shape[batch_ix] = compute_loading_shape_update(
-                    Xphi_data, X_batch.row, batchsize, a)
-            theta.vi_rate[batch_ix] = compute_loading_rate_update(
-                    xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
-                    beta.vi_shape, beta.vi_rate)
-            xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
+            else:
+                if not freeze_genes:
+                    # recalculate phi for new theta
+                    if single_process:
+                        Xphi_data = compute_Xphi_data_numpy(X_batch, theta, beta,
+                                theta_ix=batch_ix)
+                    else:
+                        Xphi_data = compute_Xphi_data(
+                                X_batch.data, X_batch.row, X_batch.col,
+                                theta.vi_shape[batch_ix], theta.vi_rate[batch_ix],
+                                beta.vi_shape, beta.vi_rate)
+                    #gene updates
+                    beta.vi_shape = compute_loading_shape_update(Xphi_data,
+                            X_batch.col, ngenes, c)
+                    beta.vi_rate = compute_loading_rate_update(eta.vi_shape,
+                            eta.vi_rate, theta.vi_shape[batch_ix],
+                            theta.vi_rate[batch_ix])
+                    eta.vi_rate = dp + beta.e_x.sum(1)
 
-            if not freeze_genes:
-                beta.vi_shape = bvs
-                beta.vi_rate = bvr
-                eta.vi_rate = dp + beta.e_x.sum(1)
-            #make
+                # cell updates
+                theta.vi_shape[batch_ix] = compute_loading_shape_update(
+                        Xphi_data, X_batch.row, batchsize, a)
+                theta.vi_rate[batch_ix] = compute_loading_rate_update(
+                        xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
+                        beta.vi_shape, beta.vi_rate)
+                xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
 
 
             # record llh/percent change and check for convergence
@@ -868,7 +893,8 @@ def run_trials(X, nfactors,
         return_all = False,
         reproject = False,
         reproject_kwargs = {},
-        batchsize=0
+        batchsize=0,
+        beta_theta_simultaneous=False,
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -990,7 +1016,8 @@ def run_trials(X, nfactors,
         # fit the model
         model.fit(X, loss_function=data_loss_function,
                   checkstep_function=checkstep_function,
-                  batchsize=batchsize)
+                  batchsize=batchsize,
+                  beta_theta_simultaneous=beta_theta_simultaneous)
         if reproject:
             print('Reprojecting data...')
             reproject_kwargs['replace'] = True
@@ -1042,7 +1069,8 @@ def run_trials_pool(X, nfactors,
         return_all = False,
         reproject = False,
         reproject_kwargs = {},
-        batchsize=0
+        batchsize=0,
+        beta_theta_simultaneous=False,
         ):
     """
     Train with multiple random initializations, selecting model with best loss.
