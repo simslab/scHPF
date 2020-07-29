@@ -283,7 +283,7 @@ if __name__=='__main__':
     # setup paths and prefixes
 
     if args.outdir is None:
-        if args.cmd in ['prep', 'prep-like', 'train', 'train_pool']:
+        if args.cmd in ['prep', 'prep-like', 'train', 'train-pool']:
             args.outdir = args.input.rsplit('/', 1)[0]
         elif args.cmd=='project':
             args.outdir = args.model.rsplit('/',1)[0]

@@ -342,7 +342,7 @@ class scHPF(BaseEstimator):
         return ls.pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
 
-    def mean_negative_pois_llh(X, theta=None, beta=None, **kwargs):
+    def mean_negative_pois_llh(self, X, theta=None, beta=None, **kwargs):
         """Convenience method for mean negative llh of nonzero entries
 
         """
