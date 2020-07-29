@@ -56,6 +56,7 @@ scHPF prep-like
 
 .. _cli-project:
 
+
 scHPF project
 =============
 
@@ -65,3 +66,14 @@ scHPF project
    :prog: scHPF
    :path: project
 
+
+.. _cli-train-pool:
+
+scHPF train-pool
+================
+
+.. argparse::
+   :filename: ../bin/scHPF
+   :func: _parser
+   :prog: scHPF
+   :path: train-pool

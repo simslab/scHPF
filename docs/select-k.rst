@@ -163,3 +163,8 @@ mean fraction of each cell's total cell score allocated to its top *nfactors*
 factors.  If we want to find a model at *n* =3 and *r* =0.7 resolution, we
 might follow the :ref:`example workflow<k-workflow>` above, and select the
 largest *K* such that *mean_cellscore_fraction* >= 0.7 when *nfactors* = 3.
+
+
+4. Other metrics
+----------------
+Coming soon
