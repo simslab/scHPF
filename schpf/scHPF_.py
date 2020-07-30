@@ -455,7 +455,8 @@ class scHPF(BaseEstimator):
     def _fit(self, X, freeze_genes=False, reinit=True, loss_function=None,
             min_iter=None, max_iter=None, epsilon=None, check_freq=None,
             single_process=False, checkstep_function=None, verbose=None,
-            batchsize=None, beta_theta_simultaneous=False):
+            batchsize=None, beta_theta_simultaneous=False,
+            loss_smoothing=1):
         """Combined internal fit/transform function
 
         Parameters
@@ -505,6 +506,10 @@ class scHPF(BaseEstimator):
             Should updates for beta and theta be computed simultaneously.
             If False, beta is updated first, and theta is updated using
             that beta
+        loss_smoothing: int, optional (Default: 1)
+            Smooth loss up to `loss_smoothing` check frequencies ago. Intended
+            to be used with batching when assessing convergence based on
+            training loss, where a good value is int(ncells/n_batches)
 
         Returns
         -------
@@ -525,6 +530,8 @@ class scHPF(BaseEstimator):
         loss : list
             loss at each checkstep
         """
+        assert loss_smoothing > 0
+
         # local (convenience) vars for model
         nfactors, (ncells, ngenes) = self.nfactors, X.shape
         a, ap, c, cp = self.a, self.ap, self.c, self.cp
@@ -546,12 +553,14 @@ class scHPF(BaseEstimator):
 
         # setup batch_ix iterator
         if batchsize is not None and batchsize > 1 and batchsize <= ncells:
+            batched = True
             batch_ix_generator = minibatch_ix_generator(ncells, batchsize)
         else:
+            batched = False
             batch_ix_generator = None
 
         ## init
-        loss, pct_change = [], []
+        loss, unsmoothed_loss, pct_change = [], [], []
         # check variable overrides
         min_iter = self.min_iter if min_iter is None else min_iter
         max_iter = self.max_iter if max_iter is None else max_iter
@@ -583,6 +592,7 @@ class scHPF(BaseEstimator):
                             beta.vi_shape, beta.vi_rate)
 
             if beta_theta_simultaneous:
+                # calculate gene updates but don't assign yet
                 if not freeze_genes:
                     bvs = compute_loading_shape_update(Xphi_data,
                             X_batch.col, ngenes, c)
@@ -603,16 +613,16 @@ class scHPF(BaseEstimator):
                     eta.vi_rate = dp + beta.e_x.sum(1)
 
             else:
+                if batched:
+                    # cell updates, must do first for batching
+                    theta.vi_shape[batch_ix] = compute_loading_shape_update(
+                            Xphi_data, X_batch.row, batchsize, a)
+                    theta.vi_rate[batch_ix] = compute_loading_rate_update(
+                            xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
+                            beta.vi_shape, beta.vi_rate)
+                    xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
+
                 if not freeze_genes:
-                    # recalculate phi for new theta
-                    if single_process:
-                        Xphi_data = compute_Xphi_data_numpy(X_batch, theta, beta,
-                                theta_ix=batch_ix)
-                    else:
-                        Xphi_data = compute_Xphi_data(
-                                X_batch.data, X_batch.row, X_batch.col,
-                                theta.vi_shape[batch_ix], theta.vi_rate[batch_ix],
-                                beta.vi_shape, beta.vi_rate)
                     #gene updates
                     beta.vi_shape = compute_loading_shape_update(Xphi_data,
                             X_batch.col, ngenes, c)
@@ -621,13 +631,15 @@ class scHPF(BaseEstimator):
                             theta.vi_rate[batch_ix])
                     eta.vi_rate = dp + beta.e_x.sum(1)
 
-                # cell updates
-                theta.vi_shape[batch_ix] = compute_loading_shape_update(
-                        Xphi_data, X_batch.row, batchsize, a)
-                theta.vi_rate[batch_ix] = compute_loading_rate_update(
-                        xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
-                        beta.vi_shape, beta.vi_rate)
-                xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
+                if not batched:
+                    # cell updates, doing after gene updates when not batched
+                    # for legacy consitancy
+                    theta.vi_shape[batch_ix] = compute_loading_shape_update(
+                            Xphi_data, X_batch.row, batchsize, a)
+                    theta.vi_rate[batch_ix] = compute_loading_rate_update(
+                            xi.vi_shape[batch_ix], xi.vi_rate[batch_ix],
+                            beta.vi_shape, beta.vi_rate)
+                    xi.vi_rate[batch_ix] = bp + theta.e_x[batch_ix].sum(1)
 
 
             # record llh/percent change and check for convergence
@@ -639,14 +651,18 @@ class scHPF(BaseEstimator):
                     curr = loss_function(
                                 a=a, ap=ap, bp=bp, c=c, cp=cp, dp=dp,
                                 xi=xi, eta=eta, theta=theta, beta=beta)
-                    loss.append(curr)
+                    unsmoothed_loss.append(curr)
+                    if len(unsmoothed_loss) > loss_smoothing:
+                        unsmoothed_loss = unsmoothed_loss[1:]
+                    # normally this is just curr as loss_smoothing=1 by default
+                    loss.append(np.mean(unsmoothed_loss))
                 except NameError as e:
                     print('Invalid loss function')
                     raise e
 
                 # calculate percent change
                 try:
-                    prev = loss[-2]
+                    curr, prev = loss[-1], loss[-2]
                     pct_change.append(100 * (curr - prev) / np.abs(prev))
                 except IndexError:
                     pct_change.append(100)
@@ -895,6 +911,7 @@ def run_trials(X, nfactors,
         reproject_kwargs = {},
         batchsize=0,
         beta_theta_simultaneous=False,
+        loss_smoothing=1
         ):
     """
     Train with multiple random initializations, selecting model with best loss
@@ -950,7 +967,11 @@ def run_trials(X, nfactors,
         Only used if `reproject` is True. Keyword args for scHPF.project.
         'replace':True cannot be changed, and will be overwritten if given
     batchsize: int, optional (Defualt 0)
-            Number of cells to use per training round. All cells used if 0.
+        Number of cells to use per training round. All cells used if 0.
+    loss_smoothing: int, optional (Default: 1)
+        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
+        to be used with batching when assessing convergence based on training
+        loss, where a good value is int(ncells/n_batches)
 
 
     Returns
@@ -962,7 +983,7 @@ def run_trials(X, nfactors,
         Rejected models, ordered by decreasing loss . Only returned if
         return_all is True
     """
-    ngenes = X.shape[1]
+    ncells, ngenes = X.shape
     if ngenes >= 20000:
         msg = 'WARNING: you are running scHPF with {} genes,'.format(ngenes)
         msg += ' which is more than the ~20k protein coding genes in the'
@@ -976,11 +997,15 @@ def run_trials(X, nfactors,
                 single_process=False)
 
     # check data we're using for loss
-    if vcells is not None: assert X.shape[1] == vcells.shape[1]
-    if vX is not None: assert vX.shape == X.shape
-    else: vX = X
+    if vcells is not None:
+        assert X.shape[1] == vcells.shape[1]
+    if vX is not None:
+        assert vX.shape == X.shape
+    else:
+        vX = X
     # setup loss fnc w/data (will be overridden if vcells is not None)
     data_loss_function = ls.loss_function_for_data(loss_function, vX)
+    # setup smoothed_loss if using batches
 
     # run trials
     best_loss, best_model, best_t = np.finfo(np.float64).max, None, None
@@ -1016,7 +1041,7 @@ def run_trials(X, nfactors,
         # fit the model
         model.fit(X, loss_function=data_loss_function,
                   checkstep_function=checkstep_function,
-                  batchsize=batchsize,
+                  batchsize=batchsize, loss_smoothing=loss_smoothing,
                   beta_theta_simultaneous=beta_theta_simultaneous)
         if reproject:
             print('Reprojecting data...')
@@ -1071,6 +1096,7 @@ def run_trials_pool(X, nfactors,
         reproject_kwargs = {},
         batchsize=0,
         beta_theta_simultaneous=False,
+        loss_smoothing=1
         ):
     """
     Train with multiple random initializations, selecting model with best loss.
@@ -1130,6 +1156,10 @@ def run_trials_pool(X, nfactors,
         'replace':True cannot be changed, and will be overwritten if given
     batchsize: int, optional (Defualt 0)
             Number of cells to use per training round. All cells used if 0.
+    loss_smoothing: int, optional (Default: 1)
+        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
+        to be used with batching when assessing convergence based on training
+        loss, where a good value is int(ncells/n_batches)
 
 
     Returns
@@ -1155,9 +1185,12 @@ def run_trials_pool(X, nfactors,
                 single_process=True)
 
     # check data we're using for loss
-    if vcells is not None: assert X.shape[1] == vcells.shape[1]
-    if vX is not None: assert vX.shape == X.shape
-    else: vX = X
+    if vcells is not None:
+        assert X.shape[1] == vcells.shape[1]
+    if vX is not None:
+        assert vX.shape == X.shape
+    else:
+        vX = X
     # setup loss fnc w/data (will be overridden if vcells is not None)
     data_loss_function = ls.loss_function_for_data(loss_function, vX)
 
@@ -1188,7 +1221,7 @@ def run_trials_pool(X, nfactors,
         # fit the model
         model.fit(X, loss_function=data_loss_function,
                   checkstep_function=None, single_process=True,
-                  batchsize=batchsize)
+                  batchsize=batchsize, loss_smoothing=loss_smoothing)
         if reproject:
             # print('Reprojecting data...')
             reproject_kwargs['replace'] = True
