@@ -507,9 +507,10 @@ class scHPF(BaseEstimator):
             If False, beta is updated first, and theta is updated using
             that beta
         loss_smoothing: int, optional (Default: 1)
-            Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-            to be used with batching when assessing convergence based on
-            training loss, where a good value is int(ncells/n_batches)
+            Smooth loss up to `loss_smoothing` check frequencies ago. 1 results
+            in no smoothing. Intended to be used with batching when assessing
+            convergence based on training loss, where a good value might be
+            int(ncells/n_batches)
 
         Returns
         -------
@@ -969,10 +970,10 @@ def run_trials(X, nfactors,
     batchsize: int, optional (Defualt 0)
         Number of cells to use per training round. All cells used if 0.
     loss_smoothing: int, optional (Default: 1)
-        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-        to be used with batching when assessing convergence based on training
-        loss, where a good value is int(ncells/n_batches)
-
+        Smooth loss up to `loss_smoothing` check frequencies ago. 1 results in
+        no smoothing. Intended to be used with batching when assessing
+        convergence based on training loss, where a good value might be
+        int(ncells/n_batches)
 
     Returns
     -------
@@ -1157,9 +1158,10 @@ def run_trials_pool(X, nfactors,
     batchsize: int, optional (Defualt 0)
             Number of cells to use per training round. All cells used if 0.
     loss_smoothing: int, optional (Default: 1)
-        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-        to be used with batching when assessing convergence based on training
-        loss, where a good value is int(ncells/n_batches)
+        Smooth loss up to `loss_smoothing` check frequencies ago. 1 results in
+        no smoothing. Intended to be used with batching when assessing
+        convergence based on training loss, where a good value might be
+        int(ncells/n_batches)
 
 
     Returns
