@@ -476,10 +476,10 @@ def load_like(infile, reference, by_gene_name=False,
             )[genelist_col]
     # select input column and process names unless told not to
     if no_split_on_dot:
-        ingenes = genes[genelist_col]
+        ingenes = candidate_names
     else:
         ref = ref.str.split('.').str[0]
-        ingenes = genes[genelist_col].str.split('.').str[0]
+        ingenes = candidate_names.str.split('.').str[0]
 
     perm = []
     try:

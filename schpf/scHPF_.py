@@ -633,7 +633,7 @@ class scHPF(BaseEstimator):
 
                 if not batched:
                     # cell updates, doing after gene updates when not batched
-                    # for legacy consitancy
+                    # for legacy consistency
                     theta.vi_shape[batch_ix] = compute_loading_shape_update(
                             Xphi_data, X_batch.row, batchsize, a)
                     theta.vi_rate[batch_ix] = compute_loading_rate_update(
