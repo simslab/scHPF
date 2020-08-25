@@ -114,10 +114,13 @@ def compute_Xphi_data(X_data, X_row, X_col,
     return Xphi
 
 
-def compute_Xphi_data_numpy(X, theta, beta):
+def compute_Xphi_data_numpy(X, theta, beta, theta_ix=None):
     """Single-threaded version of compute_Xphi_data
     """
-    logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
+    if theta_ix is None:
+        logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
+    else:
+        logrho = theta.e_logx[theta_ix,:][X.row, :] + beta.e_logx[X.col,:]
     logphi = logrho - logsumexp(logrho, axis=1)[:,None]
     return X.data[:,None] * np.exp(logphi)
 

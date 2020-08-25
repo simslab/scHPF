@@ -159,9 +159,6 @@ def _parser():
             ' Expects same format as ``-i/--input``. Training data used by'
             ' default.'
             )
-    # train.add_argument('-vnz', '--validation-nonzero', 
-            # help='Validation data of selected nonzero entries. Must have same '
-            # 'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -180,16 +177,35 @@ def _parser():
             help='Value for hyperparameter a. [Default 0.3]')
     train.add_argument('-c', type=float, default=0.3,
             help='Value for hyperparameter c. [Default 0.3]')
-    train.add_argument('--quiet', dest='verbose', action='store_false', 
-            default=True, help="Don't print intermediate llh.")
     train.add_argument('--float32', action='store_true',
-            help="Use 32-bit floats instead of default 64-bit floats in "
-            "variational distrubtions")
-    train.add_argument('-rp', '--reproject', action='store_true',
-            help="Reproject data onto fixed global (gene) parameters after"
-            " convergence, but before model selection")
+            help="Use 32-bit floats instead of default 64-bit floats in"
+            " variational distrubtions")
+    train.add_argument('-bs', '--batchsize', default=0, type=int,
+            help="Number of cells to use per training round. All cells used if"
+            " 0. Note that using batches changes the order of updates during"
+            " inference.")
+    train.add_argument('-sl', '--smooth-loss', default=1, type=int,
+            help="Average loss over the last `--smooth-loss` interations."
+            " Intended for when using minibatches, where int(ncells/batchsize)"
+            " is a reasonable value"
+            )
+    train.add_argument('-bts', '--beta-theta-simultaneous', action='store_true',
+            help="If False (default), compute beta update, then compute theta"
+            " based on the updated beta. Note that if batching is used, this"
+            " order is reverse. If True, update both beta and theta based on"
+            " values from the last training round. The later slows the rate of"
+            " convergence and sometimes results in better log-likelihoods, but"
+            " may increase convergence time, especially for large numbers of"
+            " cells."
+            )
     train.add_argument('-sa', '--save-all', action='store_true',
             help="Save all trials")
+    train.add_argument('-rp', '--reproject', action='store_true',
+            help="Reproject data onto fixed global (gene) parameters after"
+            " convergence, but before model selection. Recommended with"
+            " batching")
+    train.add_argument('--quiet', dest='verbose', action='store_false', 
+            default=True, help="Don't print intermediate llh.")
 
     ###### train with trials in threadpool
     train_pool = subparsers.add_parser('train-pool', parents=[train], 
@@ -351,6 +367,13 @@ if __name__=='__main__':
         msg = '.....found {} cells and {} genes in {}'.format(
                 ncells, ngenes, args.input)
         print(msg)
+
+        if args.batchsize and ncells > args.batchsize and not args.reproject:
+            msg = '\nWARNING: running with minibatches but without reproject.' \
+                + ' We recommend adding the --reproject flag when running with'\
+                + ' batches to synchronize cell variational distributions. \n'
+            print(msg)
+
         if args.validation_cells is not None:
             vcells = load_fnc(args.validation_cells)
             msg = '.....found {} validation cells and {} genes in {}'.format(
@@ -378,6 +401,7 @@ if __name__=='__main__':
                 raise ValueError(msg.format(args.njobs))
             run_fnc = partial(run_trials_pool, njobs=args.njobs)
 
+        # TODO get rid of repeated code
         reject = None
         if args.save_all:
             model, reject = run_fnc(train, vcells=vcells, 
@@ -386,7 +410,10 @@ if __name__=='__main__':
                         check_freq=args.check_freq, epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
-                        return_all=True, reproject=args.reproject
+                        return_all=True, reproject=args.reproject,
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous,
+                        loss_smoothing=args.smooth_loss
                         )
         else:
             model = run_fnc(train, vcells=vcells, nfactors=args.nfactors, 
@@ -395,7 +422,10 @@ if __name__=='__main__':
                         epsilon=args.epsilon,
                         better_than_n_ago=args.better_than_n_ago, dtype=dtype,
                         verbose=args.verbose, model_kwargs=model_kwargs,
-                        return_all=False, reproject=args.reproject
+                        return_all=False, reproject=args.reproject,
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous,
+                        loss_smoothing=args.smooth_loss
                         )
 
         # save the model/models
@@ -407,8 +437,10 @@ if __name__=='__main__':
         else:
             klist = args.nfactors
         for i, (K,m) in enumerate(zip(klist, model)):
-            model_outprefix = '{}scHPF_K{}_{}trials'.format(
-                        outprefix, K, args.ntrials)
+            model_outprefix = '{}scHPF_K{}{}_{}trials'.format(
+                    outprefix, K, 
+                    f'_b{args.batchsize}' if ncells > args.batchsize else '', 
+                    args.ntrials)
             if vcells is None:
                 print('Saving best model ({} factors).....'.format(K))
                 joblib.dump(m, model_outprefix + '.joblib')
