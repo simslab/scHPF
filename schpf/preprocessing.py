@@ -457,10 +457,8 @@ def load_like(infile, reference, by_gene_name=False,
         umis, genes = load_loom(infile)
         if 'Accession' in genes.columns:
             candidate_names = genes['Accession']
-            genelist_col = 0
         elif 'Gene' in genes.columns:
             candidate_names = genes['Gene']
-            genelist_col = 1
         else:
             msg = 'loom files must have at least one of the row '
             msg+= 'attributes: `Gene` or `Accession`.'
@@ -476,10 +474,10 @@ def load_like(infile, reference, by_gene_name=False,
             )[genelist_col]
     # select input column and process names unless told not to
     if no_split_on_dot:
-        ingenes = genes[genelist_col]
+        ingenes = candidate_names
     else:
         ref = ref.str.split('.').str[0]
-        ingenes = genes[genelist_col].str.split('.').str[0]
+        ingenes = candidate_names.str.split('.').str[0]
 
     perm = []
     try:
