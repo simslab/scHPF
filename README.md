@@ -21,7 +21,7 @@ Python distribution in [Miniconda](https://conda.io/miniconda.html) or
 [anaconda](https://www.continuum.io/downloads):
 
 ```
-conda create -n schpf_p37 python=3.7 scikit-learn numba=0.45 pandas
+conda create -n schpf_p37 python=3.7 scikit-learn numba=0.50 pandas
 
 # for newer anaconda versions
 conda activate schpf_p37
@@ -39,6 +39,19 @@ git clone git@github.com:simslab/scHPF.git
 cd scHPF
 pip install .
 ```
+
+### Testing your installation
+This step important because not all micro-versions of numba play nicely with
+all micro versions of Python or numpy, and sometimes issues vary across
+machines. Testing will catch some but not all such issues.  From the scHPF base
+directory do:
+```
+conda install pytest
+pytest
+```
+Please get in touch if tests fail, or if you get segmentation faults or very
+long train times that and no automatic parallelization, and I'm happy to try to
+help. 
 
 ## Quick Start: Command Line Interface
 
