@@ -270,6 +270,41 @@ class scHPF(BaseEstimator):
 
 
     @property
+    def a(self):
+        return self._a
+
+
+    @a.setter
+    def a(self, val):
+        if val == -2:
+            if self.nfactors is None:
+                raise ValueError('Can only set a as a function of nfactors when'
+                        ' nfactors is not None')
+            else:
+                self._a = 1/np.sqrt(self.nfactors)
+        else:
+            assert val > 0
+            self._a = val
+
+    @property
+    def c(self):
+        return self._c
+
+
+    @c.setter
+    def c(self, val):
+        if val == -2:
+            if self.nfactors is None:
+                raise ValueError('Can only set a as a function of nfactors when'
+                        ' nfactors is not None')
+            else:
+                self._c = 1/np.sqrt(self.nfactors)
+        else:
+            assert val > 0
+            self._c = val
+
+
+    @property
     def ngenes(self):
         return self.eta.dims[0] if self.eta is not None else None
 
@@ -507,9 +542,10 @@ class scHPF(BaseEstimator):
             If False, beta is updated first, and theta is updated using
             that beta
         loss_smoothing: int, optional (Default: 1)
-            Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-            to be used with batching when assessing convergence based on
-            training loss, where a good value is int(ncells/n_batches)
+            Smooth loss up to `loss_smoothing` check frequencies ago. 1 results
+            in no smoothing. Intended to be used with batching when assessing
+            convergence based on training loss, where a good value might be
+            int(ncells/n_batches)
 
         Returns
         -------
@@ -969,10 +1005,10 @@ def run_trials(X, nfactors,
     batchsize: int, optional (Defualt 0)
         Number of cells to use per training round. All cells used if 0.
     loss_smoothing: int, optional (Default: 1)
-        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-        to be used with batching when assessing convergence based on training
-        loss, where a good value is int(ncells/n_batches)
-
+        Smooth loss up to `loss_smoothing` check frequencies ago. 1 results in
+        no smoothing. Intended to be used with batching when assessing
+        convergence based on training loss, where a good value might be
+        int(ncells/n_batches)
 
     Returns
     -------
@@ -1157,9 +1193,10 @@ def run_trials_pool(X, nfactors,
     batchsize: int, optional (Defualt 0)
             Number of cells to use per training round. All cells used if 0.
     loss_smoothing: int, optional (Default: 1)
-        Smooth loss up to `loss_smoothing` check frequencies ago. Intended
-        to be used with batching when assessing convergence based on training
-        loss, where a good value is int(ncells/n_batches)
+        Smooth loss up to `loss_smoothing` check frequencies ago. 1 results in
+        no smoothing. Intended to be used with batching when assessing
+        convergence based on training loss, where a good value might be
+        int(ncells/n_batches)
 
 
     Returns
