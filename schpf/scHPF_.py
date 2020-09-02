@@ -270,6 +270,41 @@ class scHPF(BaseEstimator):
 
 
     @property
+    def a(self):
+        return self._a
+
+
+    @a.setter
+    def a(self, val):
+        if val == -2:
+            if self.nfactors is None:
+                raise ValueError('Can only set a as a function of nfactors when'
+                        ' nfactors is not None')
+            else:
+                self._a = 1/np.sqrt(self.nfactors)
+        else:
+            assert val > 0
+            self._a = val
+
+    @property
+    def c(self):
+        return self._c
+
+
+    @c.setter
+    def c(self, val):
+        if val == -2:
+            if self.nfactors is None:
+                raise ValueError('Can only set a as a function of nfactors when'
+                        ' nfactors is not None')
+            else:
+                self._c = 1/np.sqrt(self.nfactors)
+        else:
+            assert val > 0
+            self._c = val
+
+
+    @property
     def ngenes(self):
         return self.eta.dims[0] if self.eta is not None else None
 

@@ -39,7 +39,8 @@ def _parser():
     subparsers = parser.add_subparsers(dest='cmd')
 
     ### Preprocess command
-    prep = subparsers.add_parser('prep')
+    prep = subparsers.add_parser('prep',
+            help='Prepare data for training')
     # data
     prep.add_argument('-i', '--input', required=True,
             help='Input data. Currently accepts either: (1) a whitespace-'
@@ -101,7 +102,9 @@ def _parser():
 
 
     #### Prepare like
-    prep_like = subparsers.add_parser('prep-like')
+    prep_like = subparsers.add_parser('prep-like', 
+            help='Prepare a data set like another (ie with the same genes in'
+            ' the same order)')
     # data
     prep_like.add_argument('-i', '--input', required=True,
             help='Input data to format. Currently accepts either: (1) a'
@@ -131,7 +134,9 @@ def _parser():
 
 
     ###### Train command
-    train = subparsers.add_parser('train')
+    train = subparsers.add_parser('train',
+            help='Train a model with automatic parallelization across'
+            ' computations with numba')
     # data and saving
     train.add_argument('-i', '--input', required=True,
             help="Training data. Expects either the mtx file output by the "
@@ -174,9 +179,11 @@ def _parser():
             'if loss is worse than `better_than_n_ago`*`check-freq` training '
             'steps ago and getting worse. Normally not necessary to change.')
     train.add_argument('-a', type=float, default=0.3,
-            help='Value for hyperparameter a. [Default 0.3]')
+            help='Value for hyperparameter a. Setting to -2 will auto-set to'
+            ' 1/sqrt(nfactors)[Default 0.3]')
     train.add_argument('-c', type=float, default=0.3,
-            help='Value for hyperparameter c. [Default 0.3]')
+            help='Value for hyperparameter c. Setting to -2 will auto-set to'
+            ' 1/sqrt(nfactors)[Default 0.3]')
     train.add_argument('--float32', action='store_true',
             help="Use 32-bit floats instead of default 64-bit floats in"
             " variational distrubtions")
@@ -219,7 +226,9 @@ def _parser():
 
 
     ### Score command
-    score = subparsers.add_parser('score')
+    score = subparsers.add_parser('score',
+            help='Create useful files such as gene scores, cell scores, and'
+            ' ranked gene lists in txt format.')
     score.add_argument('-m', '--model', required=True,
             help='Saved scHPF model from train command. Should have extension' 
             '`.joblib`')
@@ -245,7 +254,8 @@ def _parser():
 
 
     # ###### Project command
-    proj = subparsers.add_parser('project')
+    proj = subparsers.add_parser('project',
+            help='Project new data onto a trained model.')
     # data and saving
     proj.add_argument('-m', '--model', required=True,
             help='The model to project onto.')
