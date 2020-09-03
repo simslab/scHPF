@@ -88,9 +88,7 @@ factorization."__ Molecular Systems Biology, 2019. [[Open access article]](http:
 Peter A. Szabo\*, Hanna Mendes Levitin\*, Michelle Miron, Mark E. Snyder,
 Takashi Senda, Jinzhou Yuan, Yim Ling Cheng, Erin C. Bush, Pranay Dogra, Puspa
 Thapa, Donna L. Farber, Peter A. Sims. __"Single-cell transcriptomics of human
-T cells reveals tissue and activation signatures in health and diseaseA
-single-cell reference map for human blood and tissue T cell activation reveals
-functional states in health and disease."__ In press, 2019. 
+T cells reveals tissue and activation signatures in health and disease."__ Nature Communications, 2019. 
 [[Open access article]](https://doi.org/10.1038/s41467-019-12464-3)
 \* Co-first authors
 
