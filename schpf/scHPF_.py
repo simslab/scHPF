@@ -383,15 +383,16 @@ class scHPF(BaseEstimator):
 
         """
         theta = self.theta if theta is None else theta
+        assert(theta.vi_shape.shape[0] == X.shape[0])
         beta = self.beta if beta is None else beta
         llh_pointwise= self.pois_llh_pointwise(X=X, theta=theta, beta=beta)
 
-        llh_csr = coo_matrix((llh_pointwise, (X.row,X.col)), shape=X.shape).tocsr()
+        llh_csr = coo_matrix((-llh_pointwise, (X.row,X.col)), shape=X.shape).tocsr()
         sums = llh_csr.sum(axis=1).A1
         counts = np.diff(llh_csr.indptr)
         averages = sums/counts
 
-        assert(averages.shape[0] == theta.shape[0])
+        assert(averages.shape[0] == theta.vi_shape.shape[0])
         return averages
 
 
