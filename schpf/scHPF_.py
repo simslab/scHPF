@@ -271,7 +271,14 @@ class scHPF(BaseEstimator):
 
     @property
     def a(self):
-        return self._a
+        try:
+            return self._a
+        except AttributeError:
+            msg = 'Automatically using a=0.3. If you are loading a model '
+                  ' generated with scHPF version < 0.5 and set a custom value '
+                  ' for a, you must manually reset it and re-save the model.'
+            warn(msg, RuntimeWarning)
+            return 0.3
 
 
     @a.setter
@@ -286,9 +293,17 @@ class scHPF(BaseEstimator):
             assert val > 0
             self._a = val
 
+
     @property
     def c(self):
-        return self._c
+        try:
+            return self._c
+        except AttributeError:
+            msg = 'Automatically using c=0.3. If you are loading a model '
+                  ' generated with scHPF version < 0.5 and set a custom value '
+                  ' for c, you must manually reset it and re-save the model.'
+            warn(msg, RuntimeWarning)
+            return 0.3
 
 
     @c.setter
