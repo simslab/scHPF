@@ -1,26 +1,46 @@
 #! /usr/bin/env python
 
 import os
+import sys
 import argparse
 import json
 import time
+from functools import partial
+
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
 
 import numpy as np
 import pandas as pd
 from scipy.io import mmread, mmwrite
 from scipy.sparse import coo_matrix
+import joblib
 
-from schpf import scHPF, load_model, save_model, run_trials
+from schpf import scHPF, run_trials, run_trials_pool
 from schpf.util import max_pairwise_table, mean_cellscore_fraction_list
 from schpf.preprocessing import load_coo, load_and_filter, load_like
 from schpf.preprocessing import split_validation_cells
 
 def _parser():
+    # usage = """scHPF <command> [<args>]
+
+# The most commonly used scHPF commands are:
+    # prep    Prepare data
+    # train   Train a model from data
+    # score   Get cell-scores, gene-scores, and other data
+
+# Some advanced scHPF commands are:
+    # prep-like    Prepare data with the same genes & order as other data
+    # project      Project data onto a pre-trained model
+    # train-pool   Train a model, parallelized at the level of trials
+    # """
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='cmd')
 
     ### Preprocess command
-    prep = subparsers.add_parser('prep')
+    prep = subparsers.add_parser('prep',
+            help='Prepare data for training')
     # data
     prep.add_argument('-i', '--input', required=True,
             help='Input data. Currently accepts either: (1) a whitespace-'
@@ -82,7 +102,9 @@ def _parser():
 
 
     #### Prepare like
-    prep_like = subparsers.add_parser('prep-like')
+    prep_like = subparsers.add_parser('prep-like', 
+            help='Prepare a data set like another (ie with the same genes in'
+            ' the same order)')
     # data
     prep_like.add_argument('-i', '--input', required=True,
             help='Input data to format. Currently accepts either: (1) a'
@@ -112,7 +134,9 @@ def _parser():
 
 
     ###### Train command
-    train = subparsers.add_parser('train')
+    train = subparsers.add_parser('train',
+            help='Train a model with automatic parallelization across'
+            ' computations with numba')
     # data and saving
     train.add_argument('-i', '--input', required=True,
             help="Training data. Expects either the mtx file output by the "
@@ -140,9 +164,6 @@ def _parser():
             ' Expects same format as ``-i/--input``. Training data used by'
             ' default.'
             )
-    # train.add_argument('-vnz', '--validation-nonzero', 
-            # help='Validation data of selected nonzero entries. Must have same '
-            # 'format (either mtx or tsv) as input. [Default None]' )
     train.add_argument('-M', '--max-iter', type=int, default=1000,
             help='Maximum iterations. [Default 1000].')
     train.add_argument('-m', '--min-iter', type=int, default=30,
@@ -158,18 +179,56 @@ def _parser():
             'if loss is worse than `better_than_n_ago`*`check-freq` training '
             'steps ago and getting worse. Normally not necessary to change.')
     train.add_argument('-a', type=float, default=0.3,
-            help='Value for hyperparameter a. [Default 0.3]')
+            help='Value for hyperparameter a. Setting to -2 will auto-set to'
+            ' 1/sqrt(nfactors)[Default 0.3]')
     train.add_argument('-c', type=float, default=0.3,
-            help='Value for hyperparameter c. [Default 0.3]')
+            help='Value for hyperparameter c. Setting to -2 will auto-set to'
+            ' 1/sqrt(nfactors)[Default 0.3]')
+    train.add_argument('--float32', action='store_true',
+            help="Use 32-bit floats instead of default 64-bit floats in"
+            " variational distrubtions")
+    train.add_argument('-bs', '--batchsize', default=0, type=int,
+            help="Number of cells to use per training round. All cells used if"
+            " 0. Note that using batches changes the order of updates during"
+            " inference.")
+    train.add_argument('-sl', '--smooth-loss', default=1, type=int,
+            help="Average loss over the last `--smooth-loss` interations."
+            " Intended for when using minibatches, where int(ncells/batchsize)"
+            " is a reasonable value"
+            )
+    train.add_argument('-bts', '--beta-theta-simultaneous', action='store_true',
+            help="If False (default), compute beta update, then compute theta"
+            " based on the updated beta. Note that if batching is used, this"
+            " order is reverse. If True, update both beta and theta based on"
+            " values from the last training round. The later slows the rate of"
+            " convergence and sometimes results in better log-likelihoods, but"
+            " may increase convergence time, especially for large numbers of"
+            " cells."
+            )
+    train.add_argument('-sa', '--save-all', action='store_true',
+            help="Save all trials")
+    train.add_argument('-rp', '--reproject', action='store_true',
+            help="Reproject data onto fixed global (gene) parameters after"
+            " convergence, but before model selection. Recommended with"
+            " batching")
     train.add_argument('--quiet', dest='verbose', action='store_false', 
             default=True, help="Don't print intermediate llh.")
-    train.add_argument('--float32', action='store_true',
-            help="Use 32-bit floats instead of default 64-bit floats in "
-            "variational distrubtions")
+
+    ###### train with trials in threadpool
+    train_pool = subparsers.add_parser('train-pool', parents=[train], 
+            add_help=False, conflict_handler='resolve')
+    train_pool.add_argument('--njobs', type=int, default=0,
+            help='Max number of processes to spawn. 0 will use the minimum of'
+            ' all available cores and ntrials.')
+    # Required model hyperparameter
+    train_pool.add_argument('-k', '--nfactors', nargs='+', type=int, 
+        required=True, help='Number of factors.')
 
 
     ### Score command
-    score = subparsers.add_parser('score')
+    score = subparsers.add_parser('score',
+            help='Create useful files such as gene scores, cell scores, and'
+            ' ranked gene lists in txt format.')
     score.add_argument('-m', '--model', required=True,
             help='Saved scHPF model from train command. Should have extension' 
             '`.joblib`')
@@ -193,8 +252,10 @@ def _parser():
         )
 
 
+
     # ###### Project command
-    proj = subparsers.add_parser('project')
+    proj = subparsers.add_parser('project',
+            help='Project new data onto a trained model.')
     # data and saving
     proj.add_argument('-m', '--model', required=True,
             help='The model to project onto.')
@@ -233,10 +294,15 @@ if __name__=='__main__':
     parser = _parser()
     args = parser.parse_args()
 
+    # print help if no subparser given
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
     # setup paths and prefixes
 
     if args.outdir is None:
-        if args.cmd in ['prep', 'prep-like', 'train']:
+        if args.cmd in ['prep', 'prep-like', 'train', 'train-pool']:
             args.outdir = args.input.rsplit('/', 1)[0]
         elif args.cmd=='project':
             args.outdir = args.model.rsplit('/',1)[0]
@@ -301,7 +367,7 @@ if __name__=='__main__':
             json.dump(args.__dict__, f, indent=2)
 
 
-    elif args.cmd == 'train':
+    elif args.cmd in ['train', 'train-pool']:
         # load data
         print( 'Loading data.....' )
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
@@ -311,6 +377,13 @@ if __name__=='__main__':
         msg = '.....found {} cells and {} genes in {}'.format(
                 ncells, ngenes, args.input)
         print(msg)
+
+        if args.batchsize and ncells > args.batchsize and not args.reproject:
+            msg = '\nWARNING: running with minibatches but without reproject.' \
+                + ' We recommend adding the --reproject flag when running with'\
+                + ' batches to synchronize cell variational distributions. \n'
+            print(msg)
+
         if args.validation_cells is not None:
             vcells = load_fnc(args.validation_cells)
             msg = '.....found {} validation cells and {} genes in {}'.format(
@@ -329,31 +402,77 @@ if __name__=='__main__':
         print('Running trials.....' )
         dtype = np.float32 if args.float32 else np.float64
         model_kwargs = dict(a=args.a, c=args.c)
-        model = run_trials(train, vcells=vcells,
-                    nfactors=args.nfactors, ntrials=args.ntrials,
-                    min_iter=args.min_iter, max_iter=args.max_iter,
-                    check_freq=args.check_freq, epsilon=args.epsilon,
-                    better_than_n_ago=args.better_than_n_ago,
-                    dtype=dtype, verbose=args.verbose,
-                    model_kwargs=model_kwargs)
 
-        # save the model
-        model_outprefix = '{}scHPF_K{}_{}trials'.format(
-                    outprefix, args.nfactors, args.ntrials)
-        if vcells is None:
-            print('Saving best model.....')
-            save_model(model, model_outprefix + '.joblib')
+        if args.cmd == 'train':
+            run_fnc = run_trials
         else:
-            print('Saving best model (training data).....')
-            save_model(model, model_outprefix + '.train.joblib')
+            if args.njobs < 0:
+                msg = 'njobs must be an int >= 0, received {}'
+                raise ValueError(msg.format(args.njobs))
+            run_fnc = partial(run_trials_pool, njobs=args.njobs)
 
-            print('Computing final validation projection....')
-            projection = model.project(vcells, replace=False)
-            print('Saving validation projection.....')
-            save_model(projection, model_outprefix + '.validaton_proj.joblib')
+        # TODO get rid of repeated code
+        reject = None
+        if args.save_all:
+            model, reject = run_fnc(train, vcells=vcells, 
+                        nfactors=args.nfactors, ntrials=args.ntrials,
+                        min_iter=args.min_iter, max_iter=args.max_iter,
+                        check_freq=args.check_freq, epsilon=args.epsilon,
+                        better_than_n_ago=args.better_than_n_ago, dtype=dtype,
+                        verbose=args.verbose, model_kwargs=model_kwargs,
+                        return_all=True, reproject=args.reproject,
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous,
+                        loss_smoothing=args.smooth_loss
+                        )
+        else:
+            model = run_fnc(train, vcells=vcells, nfactors=args.nfactors, 
+                        ntrials=args.ntrials, min_iter=args.min_iter,
+                        max_iter=args.max_iter, check_freq=args.check_freq,
+                        epsilon=args.epsilon,
+                        better_than_n_ago=args.better_than_n_ago, dtype=dtype,
+                        verbose=args.verbose, model_kwargs=model_kwargs,
+                        return_all=False, reproject=args.reproject,
+                        batchsize=args.batchsize,
+                        beta_theta_simultaneous=args.beta_theta_simultaneous,
+                        loss_smoothing=args.smooth_loss
+                        )
+
+        # save the model/models
+        if isinstance(args.nfactors, int):
+            klist = [args.nfactors]
+            model = [model]
+            if reject is not None:
+                reject = [reject]
+        else:
+            klist = args.nfactors
+        for i, (K,m) in enumerate(zip(klist, model)):
+            model_outprefix = '{}scHPF_K{}{}_{}trials'.format(
+                    outprefix, K, 
+                    f'_b{args.batchsize}' if ncells > args.batchsize else '', 
+                    args.ntrials)
+            if vcells is None:
+                print('Saving best model ({} factors).....'.format(K))
+                joblib.dump(m, model_outprefix + '.joblib')
+            else:
+                print('Saving best model (training data, {} factors).....'\
+                        .format(K))
+                joblib.dump(m, model_outprefix + '.train.joblib')
+
+                print('Computing final validation projection ({} factors)....'\
+                        .format(K))
+                projection = m.project(vcells, replace=False)
+                print('Saving validation projection.....({} factors)'.format(K))
+                joblib.dump(projection, 
+                        model_outprefix + '.validation_proj.joblib')
+            if args.save_all:
+                for j,r in enumerate(reject[i]):
+                    joblib.dump(r, model_outprefix + f'_reject{j+1}.joblib')
+
 
         print('Writing commandline arguments to file.....')
         cmdfile = '{}train_commandline_args.json'.format(outprefix)
+        print(cmdfile)
         if os.path.exists(cmdfile):
             cmdfile = '{}train_commandline_args.{}.json'.format(outprefix, 
                     time.strftime("%Y%m%d-%H%M%S"))
@@ -365,7 +484,7 @@ if __name__=='__main__':
 
     elif args.cmd == 'score':
         print('Loading model.....')
-        model = load_model(args.model)
+        model = joblib.load(args.model)
 
         print('Calculating scores.....')
         cell_score = model.cell_score()
@@ -386,14 +505,6 @@ if __name__=='__main__':
         table = max_pairwise_table(gene_score, 
                 ntop_list=[50,100,150,200,250,300,350,400,450,500])
         table.to_csv(outprefix + 'maximum_overlaps.txt', sep='\t', index=False)
-        # # Make second table w/percent cutoffs
-        # percents = [0.005, 0.01, 0.02, 0.03,0.04, 0.05]
-        # p_ntop = [int(p*len(gene_score)) for p in percents]
-        # table2 = max_pairwise_table(gene_score, ntop_list=p_ntop)
-        # table2['percent'] = percents # add percent column
-        # table2 = table2[['percent'] + list(table2.columns[:-1])] # reorder columns
-        # table2.to_csv(outprefix + 'maximum_overlaps.percent.txt', sep='\t', 
-                # index=False)
 
         if args.genefile is not None:
             print('Ranking genes.....')
@@ -424,7 +535,7 @@ if __name__=='__main__':
 
     elif args.cmd == 'project':
         print('Loading reference model.....')
-        model = load_model(args.model)
+        model = joblib.load(args.model)
         print('Loading data.....')
         load_fnc = mmread if args.input.endswith('.mtx') else load_coo
         proj_data = load_fnc(args.input)
@@ -440,7 +551,7 @@ if __name__=='__main__':
             outprefix += '{}.'.format('recalc_bp')
         proj_out = '{}{}.proj.joblib'.format(outprefix, 
                 args.model.rsplit('.',1)[0].split('/')[-1])
-        save_model(projection, proj_out)
+        joblib.dump(projection, proj_out)
 
         print('Writing commandline arguments to file.....')
         cmdfile = '{}project_commandline_args.json'.format(outprefix)

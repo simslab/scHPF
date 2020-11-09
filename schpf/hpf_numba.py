@@ -3,6 +3,11 @@
 import ctypes
 import numpy as np
 from scipy.sparse import coo_matrix
+try:
+    from scipy.misc import logsumexp
+except ImportError:
+    from scipy.special import logsumexp
+
 import numba
 from numba.extending import get_cython_function_address as getaddr
 
@@ -107,6 +112,17 @@ def compute_Xphi_data(X_data, X_row, X_col,
             Xphi[i,k] = X_data[i] * rho_shift[k] / normalizer
 
     return Xphi
+
+
+def compute_Xphi_data_numpy(X, theta, beta, theta_ix=None):
+    """Single-threaded version of compute_Xphi_data
+    """
+    if theta_ix is None:
+        logrho = theta.e_logx[X.row, :] + beta.e_logx[X.col, :]
+    else:
+        logrho = theta.e_logx[theta_ix,:][X.row, :] + beta.e_logx[X.col,:]
+    logphi = logrho - logsumexp(logrho, axis=1)[:,None]
+    return X.data[:,None] * np.exp(logphi)
 
 
 @numba.njit(fastmath=True) #results unstable with prange. don't do it.

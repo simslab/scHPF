@@ -4,6 +4,15 @@
 Changelog
 *********
 
+0.4.0
+=====
+- train-pool for training parallelized at the level of trials rather than
+  computations
+- reproject and save all options during training
+- add separate joblib dependency (should be installed w/scikit-learn,
+  scikit.externals.joblib is deprecated)
+
+
 0.3.0
 =====
 

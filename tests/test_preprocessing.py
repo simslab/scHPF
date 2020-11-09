@@ -48,6 +48,7 @@ def test_load_txt(ngene_cols):
     assert coo.shape[0]  == NCELLS + 2 - ngene_cols
 
 
+# TODO add loom and test, also check that this works since passed shouldn't?
 def test_load_like(tmp_path):
     gene_file = str(tmp_path / 'genes.txt')
 

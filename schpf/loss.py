@@ -8,6 +8,7 @@ given dataset
 
 import functools
 import numpy as np
+from scipy.special import gammaln
 
 from schpf.hpf_numba import compute_pois_llh
 
@@ -84,7 +85,7 @@ def projection_loss_function(loss_function, X, nfactors,
         pmodel.beta = beta
 
         # defaults if not given
-        if 'reinit' not in proj_kwargs: prj_kwargs['reinit'] = False
+        if 'reinit' not in proj_kwargs: proj_kwargs['reinit'] = False
         if 'max_iter' not in proj_kwargs: proj_kwargs['max_iter'] = 10
         if 'min_iter' not in proj_kwargs: proj_kwargs['min_iter'] = 10
         if 'check_freq' not in proj_kwargs:
@@ -103,7 +104,7 @@ def projection_loss_function(loss_function, X, nfactors,
 
 #### Loss functions
 
-def pois_llh_pointwise(X, *, theta, beta, **kwargs):
+def pois_llh_pointwise(X, *, theta, beta, single_process=False, **kwargs):
     """Poisson log-likelihood for each nonzero entry
 
     Parameters
@@ -112,6 +113,8 @@ def pois_llh_pointwise(X, *, theta, beta, **kwargs):
         Data to compute Poisson log likelihood of. Assumed to be nonzero.
     theta : HPF_Gamma
     beta : HPF_Gamma
+    single_process: bool, optiona (Default: False)
+        use single-threaded version of llh
     **kwargs : dict, optional
         extra arguments not used in this loss function
 
@@ -126,17 +129,17 @@ def pois_llh_pointwise(X, *, theta, beta, **kwargs):
     must be passed to the function as a keyword argument, and the function
     will accept unused keyword args.
     """
-    try:
+    if single_process:
+        e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
+        llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
+    else:
         llh = compute_pois_llh(X.data, X.row, X.col,
                                 theta.vi_shape, theta.vi_rate,
                                 beta.vi_shape, beta.vi_rate)
-    except NameError:
-        e_rate = (theta.e_x[X.row] *  beta.e_x[X.col]).sum(axis=1)
-        llh = X.data * np.log(e_rate) - e_rate - gammaln(X.data + 1)
     return llh
 
 
-def mean_negative_pois_llh(X, *, theta, beta, **kwargs):
+def mean_negative_pois_llh(X, *, theta, beta, single_process=False, **kwargs):
     """Mean Poisson log-likelihood for each nonzero entry
 
     Parameters
@@ -145,6 +148,8 @@ def mean_negative_pois_llh(X, *, theta, beta, **kwargs):
         Data to compute Poisson log likelihood of. Assumed to be nonzero.
     theta : HPF_Gamma
     beta : HPF_Gamma
+    single_process: bool, optional (Default: False)
+        use single-threaded version of pointwise loss
     **kwargs : dict, optional
         extra arguments not used in this loss function
 
@@ -159,4 +164,5 @@ def mean_negative_pois_llh(X, *, theta, beta, **kwargs):
     must be passed to the function as a keyword argument, and the function
     will accept unused keyword args.
     """
-    return np.mean( -pois_llh_pointwise(X=X, theta=theta, beta=beta) )
+    return np.mean( -pois_llh_pointwise(X=X, theta=theta, beta=beta,
+        single_process=single_process) )

@@ -74,6 +74,19 @@ def test__setup_freeze(model, data):
     assert bp3 != bp2
 
 
+def test__set_ac(model_uninit):
+    model_uninit.nfactors = None
+    with pytest.raises(ValueError):
+        model_uninit.a = -2
+    with pytest.raises(ValueError):
+        model_uninit.c = -2
+
+    model_uninit.nfactors = 15
+    model_uninit.a = -2
+    assert model_uninit.a == 1/np.sqrt(15)
+    model_uninit.c = -2
+    assert model_uninit.c == 1/np.sqrt(15)
+
 @pytest.mark.parametrize('a_dims', [[5,], [5,10]])
 @pytest.mark.parametrize('dtype', [np.float64, np.float32])
 def test_HPF_Gamma_combine(a_dims, dtype):
@@ -190,5 +203,6 @@ def test_combine_across_cells(data, dtype):
     assert_equal(ab.beta, b.beta)
 
 
+# TODO write this, also do for run_trials_pool
 # def test_run_trials(data):
     # pass
