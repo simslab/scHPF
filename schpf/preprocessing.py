@@ -64,6 +64,39 @@ def load_loom(filename):
     return loom_coo,loom_genes
 
 
+def load_h5ad(filename):
+    """Load data from a h5ad file
+    Parameters
+    ----------
+    filename: str
+        file to load
+    Returns
+    -------
+    coo : coo_matrix
+        cell x gene sparse count matrix
+    genes : Dataframe
+        Dataframe of gene attributes.  Attributes are ordered so
+        Accession and Gene are the first columns, if those attributs are
+        present
+    """
+    import anndata
+    # load the anndata file
+    adata = anndata.read_h5ad(filename)
+    adata_genes = adata.var
+    adata_coo = adata.X
+
+    # order gene attributes so Accession and Gene are the first two columns,
+    # if they are present
+    first_cols = []
+    for colname in ['Accession', 'Gene']:
+        if colname in adata_genes.columns:
+            first_cols.append(colname)
+    rest_cols = adata_genes.columns.difference(first_cols).tolist()
+    adata_genes = adata_genes[first_cols + rest_cols]
+
+    return adata_coo,adata_genes
+
+
 def load_txt(filename,  ngene_cols=2, verbose=True):
     """Load data from a whitespace delimited txt file
 
@@ -334,9 +367,9 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
     infile : str
         Input data. Currently accepts either: (1) a whitespace-delimited gene
         by cell UMI count matrix with 2 leading columns of gene attributes
-        (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom file with at
-        least one of the row attributes `Accession` or `Gene`, where `Accession`
-        is an ENSEMBL id and `Gene` is the name.
+        (ENSEMBL_ID and GENE_NAME respectively), or (2) a loom/h5ad (anndata) 
+        file with at least one of the row attributes `Accession` or `Gene`, 
+        where `Accession` is an ENSEMBL id and `Gene` is the name.
     min_cells : float or int
         Minimum number of cells in which we must observe at least one transcript
         of a gene for the gene to pass filtering. If 0 <`min_cells`< 1, sets
@@ -384,6 +417,18 @@ def load_and_filter(infile, min_cells, whitelist='', blacklist='',
             genelist_col = 1
         else:
             msg = 'loom files must have at least one of the row '
+            msg+= 'attributes: `Gene` or `Accession`.'
+            raise ValueError(msg)
+    elif infile.endswith('.h5ad'):
+        umis, genes = load_h5ad(infile)
+        if 'Accession' in genes.columns:
+            candidate_names = genes['Accession']
+            genelist_col = 0
+        elif 'Gene' in genes.columns:
+            candidate_names = genes['Gene']
+            genelist_col = 1
+        else:
+            msg = 'h5ad files must have at least one of the row '
             msg+= 'attributes: `Gene` or `Accession`.'
             raise ValueError(msg)
     else:
