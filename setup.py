@@ -19,7 +19,7 @@ requires = ['scikit-learn',
 tests_require = ['pytest']
 extras_require = {
         'loompy' : ['loompy'],
-        'docs' : ['sphinx-argparse'],
+        'docs' : ['sphinx', 'sphinx_rtd_theme', 'sphinx-argparse'],
         }
 
 setup(
