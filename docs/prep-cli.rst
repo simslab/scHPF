@@ -45,8 +45,8 @@ and formats it for training. The input matrix has two allowed formats:
 
         ENSEMBL_ID    GENE_NAME    UMICOUNT_CELL0    UMICOUNT_CELL1 ...
 
-    2. A **loom file** (see `loompy docs`_).  The loom file must have at least 
-       one of the row attributes ``Accession`` or ``Gene``, where ``Accession``
+    2. A **loom file** (see `loompy docs`_).  The loom file must have 
+       the row attributes ``Accession`` and ``Gene``, where ``Accession``
        is an ENSEMBL id and ``Gene`` is a gene name. 
 
 .. _whitelist:
